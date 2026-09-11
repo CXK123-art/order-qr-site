@@ -125,24 +125,28 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .viewer .v-head{text-align:center;margin-bottom:24px}
 .viewer .v-head h1{font-size:22px;font-weight:700}
 .viewer .v-head p{color:var(--muted);font-size:13px;margin-top:6px}
-.v-card{
-  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px;
-  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
-}
-.v-order{font-size:14px;color:var(--muted);word-break:break-all;flex:1;min-width:140px}
-.v-order b{display:block;color:var(--ink);font-size:15px;font-weight:600;margin-bottom:2px;font-family:ui-monospace,"SF Mono",Consolas,monospace}
+.v-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.v-table thead th{background:#F1F7F7;color:var(--muted);font-size:12.5px;font-weight:600;text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);letter-spacing:.3px}
+.v-table thead th.th-act{text-align:center}
+.v-table tbody td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+.v-table tbody tr:last-child td{border-bottom:none}
+.td-order{font-size:14px;font-weight:600;color:var(--ink);word-break:break-all;line-height:1.4}
+.td-order small{display:block;font-size:10.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.td-phone{white-space:nowrap}
+.td-phone a{color:var(--ink);font-size:15px;font-weight:600;text-decoration:none;font-family:ui-monospace,"SF Mono",Consolas,monospace;border-bottom:1.5px dashed #C4D4D4;padding-bottom:1px}
+.td-phone a:hover{color:var(--brand)}
+.td-act{text-align:center;white-space:nowrap}
 .dial{
-  display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border:none;border-radius:999px;
-  background:var(--brand);color:#fff;font-size:17px;font-weight:700;font-family:inherit;
-  text-decoration:none;cursor:pointer;box-shadow:0 4px 12px rgba(13,110,110,.28);
-  transition:background .15s,transform .05s;letter-spacing:.5px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border:none;border-radius:999px;
+  background:var(--brand);color:#fff;font-size:14px;font-weight:700;font-family:inherit;
+  text-decoration:none;cursor:pointer;box-shadow:0 3px 10px rgba(13,110,110,.25);
+  transition:background .15s,transform .05s;letter-spacing:1px;min-width:76px;
 }
 .dial:hover{background:var(--brand-deep)}
-.dial:active{transform:scale(.98)}
-.dial.called{background:var(--danger);box-shadow:0 4px 12px rgba(194,72,63,.3)}
+.dial:active{transform:scale(.97)}
+.dial.called{background:var(--danger);box-shadow:0 3px 10px rgba(194,72,63,.3)}
 .dial.called:hover{background:#A93A32}
-.dial .sub{display:block;font-size:10px;font-weight:500;opacity:.85;letter-spacing:1px}
+.dial .sub{display:block;font-size:11px;font-weight:600;opacity:.95;letter-spacing:0;line-height:1.45}
 .v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:26px}
 .v-empty{text-align:center;color:var(--muted);font-size:14px;padding:30px 10px;border:1px dashed var(--line);border-radius:12px;background:var(--card)}
 
@@ -157,7 +161,10 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
   .order-item .phone{padding:10px 14px;min-height:44px}
   .batch-grid{grid-template-columns:1fr}
   .dial{width:100%;justify-content:center}
-  .v-card{flex-direction:column;align-items:stretch;text-align:left}
+  .v-table thead th,.v-table tbody td{padding:9px 10px}
+  .td-act .dial{min-width:0;padding:8px 12px;font-size:13px}
+  .td-order{font-size:13px}
+  .td-phone a{font-size:13.5px}
   .input{font-size:16px}
   textarea.input{font-size:16px}
 }
@@ -280,7 +287,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
   <div class="viewer">
     <div class="v-head">
       <h1 id="v-title">联系电话</h1>
-      <p>点击号码直接拨打</p>
+      <p>点击「拨打」直接拨号，挂断后自动返回本页</p>
     </div>
     <div class="search-box">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -2828,20 +2835,21 @@ function renderViewer(){
     $('v-list').innerHTML = '<div class="v-empty">没有匹配「' + esc(q) + '」的订单号或手机号</div>';
     return;
   }
-  var html = '';
+  var html = '<table class="v-table"><thead><tr><th>订单号</th><th>手机号</th><th class="th-act">操作</th></tr></thead><tbody>';
   list.forEach(function(item){
     var phone = String(item.p||'').trim();
     var key = dialKey(item.n, phone);
     var called = log[key] || 0;
-    html += '<div class="v-card">' +
-      '<div class="v-order"><b>' + esc(item.n||'未填写') + '</b>订单号</div>' +
-      '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2z"/></svg>' +
-        '<span><span class="dial-num">' + esc(phone) + '</span>' +
-        '<span class="sub">' + (called ? '已拨打 ' + fmtDialTime(called) : '点击拨打') + '</span></span>' +
-      '</a>' +
-    '</div>';
+    var dialBtn = called
+      ? '<span class="sub">已拨打<br>' + esc(fmtDialTime(called)) + '</span>'
+      : '<span>拨打</span>';
+    html += '<tr>' +
+      '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
+      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a></td>' +
+      '<td class="td-act"><a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a></td>' +
+    '</tr>';
   });
+  html += '</tbody></table>';
   $('v-list').innerHTML = html;
   Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
     a.addEventListener('click', function(){
@@ -2850,8 +2858,7 @@ function renderViewer(){
       log2[key] = Date.now();
       try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
       a.classList.add('called');
-      var sub = a.querySelector('.sub');
-      if(sub) sub.textContent = '已拨打 ' + fmtDialTime(log2[key]);
+      a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(log2[key])) + '</span>';
     });
   });
 }
