@@ -191,13 +191,13 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
           <div class="card-title">添加订单</div>
           <div class="row">
             <div class="grow"><input id="in-order" class="input" placeholder="订单号，如 DD20260911001"></div>
-            <div class="grow"><input id="in-phone" class="input mono" placeholder="手机号，如 13800138000" inputmode="tel"></div>
+            <div class="grow"><input id="in-phone" class="input mono" placeholder="手机号/虚拟号，如 13800138000 或 400-123-4567" inputmode="tel"></div>
             <button id="btn-add" class="btn" type="button">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
               添加
             </button>
           </div>
-          <div class="hint">手机号支持 <b>+86、区号、横线</b> 等写法，生成拨号链接时自动转换为可拨打格式。</div>
+          <div class="hint">支持 <b>手机号、400/95 虚拟号、短号、分机号（用逗号或"转"分隔）、国际号</b>，生成拨号链接时自动转换为可拨打格式。</div>
         </div>
 
         <div class="card">
@@ -2656,14 +2656,22 @@ function renderList(){
 if($('in-search')) $('in-search').addEventListener('input', renderList);
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function telHref(phone){
-  return String(phone).replace(/[\s()（）\-—]/g,'').replace(/^00(\d+)/,'+$1');
+  var s = String(phone).trim();
+  /* 去掉空格、括号、横杠、下划线、点等纯格式字符；保留拨号有效字符 + * # , ; p w */
+  s = s.replace(/[\s()（）\-—_·]/g,'');
+  /* 00 开头的国际长途转 + */
+  s = s.replace(/^00(\d)/,'+$1');
+  /* 中文"转"/"分机"/"ext" → 逗号（等待约 2 秒后自动拨分机） */
+  s = s.replace(/转|分机|ext\.?/gi, ',');
+  return s;
 }
 
 /* ===== 编辑器：添加与导入 ===== */
 function addOrder(order, phone){
   order = (order||'').trim(); phone = (phone||'').trim();
-  if(!phone){ toast('请填写手机号'); return false; }
-  if(phone.replace(/[^\d+]/g,'').length < 5){ toast('手机号格式不正确'); return false; }
+  if(!phone){ toast('请填写号码'); return false; }
+  /* 允许手机号、400/95 虚拟号、短号、分机号、国际号、USSD（*#）；至少 3 位有效拨号字符 */
+  if(phone.replace(/[^\d+*#,;pw]/gi,'').length < 3){ toast('号码格式不正确'); return false; }
   state.orders.push({order:order||('订单 '+(state.orders.length+1)), phone:phone});
   save(); renderList(); return true;
 }
