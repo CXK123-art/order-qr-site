@@ -202,6 +202,35 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 </style>
 </head>
 <body>
+<!-- 启动确认弹窗：功能介绍 + 违规告知，点击确认后方可进入主网页 -->
+<div id="start-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(12,20,28,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;width:100%;max-width:640px;padding:26px 30px;border-radius:14px;max-height:86vh;overflow-y:auto;box-sizing:border-box;">
+    <div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:22px;font-weight:700;color:#14202B;">订单电话二维码生成器</div>
+      <div style="font-size:13px;color:#7a8a99;margin-top:4px;">工具使用须知</div>
+    </div>
+
+    <div style="font-size:15px;line-height:1.8;color:#333;">
+      <div style="font-weight:700;color:#14202B;margin-bottom:4px;">📋 功能介绍</div>
+      <div style="margin-bottom:12px;">
+        本工具用于：录入<b>订单号与联系号码</b>，批量生成可拨号的<b>静态压缩二维码</b>与<b>活码</b>；支持批量导入/导出数据，活码模式下更新数据无需重新生成二维码。数据默认保存在浏览器本地，活码模式需配套数据文件提供内容。
+      </div>
+
+      <div style="font-weight:700;color:#c0392b;margin-bottom:4px;">⚠️ 违规使用告知</div>
+      <div>
+        1. 本工具仅可用于本人合法、合规的业务场景；<br>
+        2. 严禁用于骚扰电话、电信诈骗、批量外呼骚扰、隐私窃取等任何违法违规行为；<br>
+        3. 使用者对所录入的全部号码与订单数据承担全部法律责任；<br>
+        4. 禁止采集、存储、传播未获授权的他人个人信息；<br>
+        5. 若用于任何非法用途，一切法律后果由使用者自行承担。
+      </div>
+    </div>
+
+    <div style="margin-top:22px;text-align:center;">
+      <button id="btn-agree" type="button" style="padding:12px 34px;font-size:16px;font-weight:600;background:#2b78e4;color:#fff;border:none;border-radius:8px;cursor:pointer;">我已阅读并确认，进入工具</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <!-- ===== 视图：编辑器（管理订单） ===== -->
@@ -3451,12 +3480,22 @@ if($('v-search')) $('v-search').addEventListener('input', function(){ renderView
 
 /* ===== 初始化 ===== */
 if(isViewer()){
+  /* 拨打页（扫码打开）：直接显示，不弹确认窗 */
   $('view-editor').style.display = 'none';
   $('view-viewer').style.display = 'block';
+  var sm = document.getElementById('start-modal');
+  if(sm) sm.style.display = 'none';
   renderViewer();
 } else {
-  renderList();
+  /* 主网页：先隐藏，等待用户确认后显示 */
+  $('view-editor').style.display = 'none';
 }
+var btnAgree = document.getElementById('btn-agree');
+if(btnAgree) btnAgree.addEventListener('click', function(){
+  var m = document.getElementById('start-modal');
+  if(m) m.style.display = 'none';
+  $('view-editor').style.display = 'block';
+});
 </script>
 </body>
 </html>
