@@ -3320,13 +3320,20 @@ function settlePendingDial(){
 window.addEventListener('focus', settlePendingDial);
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) settlePendingDial(); });
 
+var viewerData = null; /* 活码模式下缓存已加载的数据，供搜索/重渲染使用 */
 function renderViewer(preloadedData){
   /* 活码模式：从 live-data.json 异步加载数据 */
+  if(preloadedData){ viewerData = preloadedData; }
   if(!preloadedData && /^#live/.test(location.hash)){
+    if(viewerData){
+      /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
+      renderViewer(viewerData);
+      return;
+    }
     $('v-title').textContent = '加载中…';
     fetch('live-data.json', {cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-      .then(function(d){ renderViewer(d); })
+      .then(function(d){ viewerData = d; renderViewer(d); })
       .catch(function(){
         document.getElementById('view-viewer').innerHTML = '<div class="viewer"><div class="v-head"><h1>数据加载失败</h1><p>活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。</p></div></div>';
       });
