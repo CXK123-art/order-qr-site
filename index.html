@@ -88,6 +88,22 @@ body{
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 10px;border:1px dashed var(--line);border-radius:12px}
 textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .batch-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+/* ===== 表格智能导入预览 ===== */
+.tp-info{font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.6}
+.tp-info b{color:var(--ink)}
+.tp-table{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.tp-table th{background:#F2F3F5;padding:7px 8px;text-align:left;border:1px solid #E0E4E8;font-weight:600;color:#333;white-space:nowrap;cursor:pointer;user-select:none;position:relative}
+.tp-table th:hover{background:#E8EAED}
+.tp-table th .tp-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700;vertical-align:middle}
+.tp-badge.order{background:#E3F2FD;color:#1565C0}
+.tp-badge.phone{background:#E8F5E9;color:#2E7D32}
+.tp-badge.ignore{background:#F5F5F5;color:#999}
+.tp-table td{padding:6px 8px;border:1px solid #ECEFF1;font-family:ui-monospace,"SF Mono",Consolas,monospace;color:#444;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-table tr:nth-child(even) td{background:#FAFBFC}
+.tp-table td.col-phone{color:#2E7D32;font-weight:600}
+.tp-table td.col-order{color:#1565C0;font-weight:600}
+.tp-table td.col-ignore{color:#BBB}
+.tp-more{font-size:12px;color:var(--muted);text-align:center;padding:4px}
 .field-label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px}
 .field-label b{color:var(--brand);font-weight:600}
 
@@ -226,6 +242,21 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             </button>
           </div>
           <div class="hint">订单号与手机号按<b>行数顺序</b>一一配对生成订单；两栏行数不一致时，按较少的一栏为准。</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">表格智能导入<span class="sub">从Excel复制表格粘贴，自动识别订单号和手机号列</span></div>
+          <textarea id="in-table" class="input mono" rows="5" placeholder="从Excel复制表格后直接粘贴到这里&#10;支持Tab分隔、CSV逗号分隔&#10;自动识别哪列是订单号、哪列是手机号"></textarea>
+          <div class="row" style="margin-top:10px;gap:8px">
+            <button id="btn-table-parse" class="btn plain" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              解析预览
+            </button>
+            <button id="btn-table-import" class="btn" type="button" disabled>确认导入</button>
+            <button id="btn-table-clear" class="btn plain" type="button">清空</button>
+          </div>
+          <div id="table-preview" style="margin-top:12px"></div>
+          <div class="hint">点击列头可切换列类型（<b>订单号</b>/<b>手机号</b>/<b>忽略</b>）；首行若为表头会自动跳过；解析后点「确认导入」批量添加。</div>
         </div>
 
         <div class="card">
@@ -2728,6 +2759,189 @@ $('btn-import').addEventListener('click', function(){
   if(orders.length !== phones.length) msg += '（订单号 ' + orders.length + ' 行，手机号 ' + phones.length + ' 行，已按 ' + n + ' 行配对）';
   if(skipped) msg += '，跳过 ' + skipped + ' 条无效号码';
   toast(msg);
+});
+
+/* ===== 表格智能导入 ===== */
+var tableState = { rows: [], types: [], headerRow: false, colCount: 0 };
+
+function parseTableText(text){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim(); });
+  if(!lines.length) return [];
+  /* 自动识别分隔符：Tab > 逗号 > 分号 > 竖线 */
+  var first = lines[0];
+  var delim = '\t';
+  if(first.indexOf('\t') < 0){
+    if(first.split(',').length > 1) delim = ',';
+    else if(first.split(';').length > 1) delim = ';';
+    else if(first.split('|').length > 1) delim = '|';
+  }
+  return lines.map(function(line){
+    return line.split(delim).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
+  });
+}
+
+function isPhoneCell(s){
+  if(!s) return false;
+  var digits = s.replace(/[^\d]/g,'');
+  if(/^1\d{10}$/.test(digits)) return true; /* 手机号 */
+  if(/^400\d{7}$/.test(digits)) return true; /* 400电话 */
+  if(/^95\d{3,6}$/.test(digits)) return true; /* 95客服号 */
+  if(digits.length >= 7 && digits.length <= 16 && /[\d\-+]/.test(s) && !/[A-Za-z]/.test(s)) return true; /* 一般电话/座机/带分机 */
+  return false;
+}
+
+function detectTableColumns(rows){
+  if(!rows.length) return {types:[], headerRow:false, colCount:0};
+  var colCount = Math.max.apply(null, rows.map(function(r){ return r.length; }));
+  var firstRow = rows[0];
+  /* 判断首行是否为表头 */
+  var headerKw = /订单|单号|order|手机|电话|phone|tel|号码|序号|编号|联系/i;
+  var headerMatches = firstRow.filter(function(c){ return headerKw.test(c); }).length;
+  var headerRow = (headerMatches >= 1 && firstRow.length > 1);
+  var dataRows = headerRow ? rows.slice(1) : rows;
+  var types = [];
+
+  for(var c=0; c<colCount; c++){
+    /* 先看表头名称 */
+    if(headerRow){
+      var h = (firstRow[c]||'').toLowerCase();
+      if(/手机|电话|phone|tel|号码|联系/.test(h)){ types.push('phone'); continue; }
+      if(/订单|单号|order|序号|编号/.test(h)){ types.push('order'); continue; }
+    }
+    /* 再按内容统计 */
+    var phoneScore=0, orderScore=0, total=0;
+    for(var r=0;r<dataRows.length;r++){
+      var cell = dataRows[r][c]||'';
+      if(!cell) continue;
+      total++;
+      if(isPhoneCell(cell)) phoneScore++;
+      else if(cell.length >= 4 && !/^\d{4}[-/]/.test(cell)) orderScore++;
+    }
+    if(total === 0){ types.push('ignore'); continue; }
+    if(phoneScore/total >= 0.5) types.push('phone');
+    else if(orderScore/total >= 0.3) types.push('order');
+    else types.push('ignore');
+  }
+
+  /* 确保至少有一列手机号和一列订单号 */
+  if(types.indexOf('phone') < 0){
+    var best=-1, bestScore=-1;
+    for(c=0;c<colCount;c++){
+      var ps=0,t=0;
+      for(r=0;r<dataRows.length;r++){ var cc=dataRows[r][c]||''; if(cc){t++; if(isPhoneCell(cc))ps++;} }
+      if(t && ps/t > bestScore){ bestScore=ps/t; best=c; }
+    }
+    if(best>=0) types[best]='phone';
+  }
+  if(types.indexOf('order') < 0){
+    for(c=0;c<colCount;c++){
+      if(types[c]==='ignore'){ types[c]='order'; break; }
+    }
+  }
+  return {types:types, headerRow:headerRow, colCount:colCount};
+}
+
+function renderTablePreview(){
+  var box = $('table-preview');
+  if(!tableState.rows.length){ box.innerHTML=''; return; }
+  var rows = tableState.rows, types = tableState.types, colCount = tableState.colCount;
+  var dataRows = tableState.headerRow ? rows.slice(1) : rows;
+  var orderCol = types.indexOf('order'), phoneCol = types.indexOf('phone');
+  var validCount = 0;
+  dataRows.forEach(function(r){
+    if(orderCol>=0 && phoneCol>=0 && r[phoneCol] && r[phoneCol].replace(/[^\d]/g,'').length>=3) validCount++;
+  });
+
+  var html = '<div class="tp-info">共 <b>' + rows.length + '</b> 行' +
+    (tableState.headerRow ? '（含表头，已自动跳过首行）' : '') +
+    '，识别到 <b>' + colCount + '</b> 列；可导入 <b>' + validCount + '</b> 条有效订单。' +
+    (orderCol<0 ? ' <span style="color:#D93025">未识别到订单号列</span>' : '') +
+    (phoneCol<0 ? ' <span style="color:#D93025">未识别到手机号列</span>' : '') +
+    '</div>';
+
+  html += '<div style="overflow-x:auto"><table class="tp-table"><thead><tr>';
+  var headerCells = tableState.headerRow ? rows[0] : [];
+  for(var c=0;c<colCount;c++){
+    var label = headerCells[c] || ('列'+(c+1));
+    var t = types[c]||'ignore';
+    var badgeText = t==='order'?'订单号':t==='phone'?'手机号':'忽略';
+    html += '<th data-col="'+c+'" title="点击切换列类型">'+esc(label)+'<span class="tp-badge '+t+'">'+badgeText+'</span></th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  var previewRows = dataRows.slice(0,5);
+  previewRows.forEach(function(r){
+    html += '<tr>';
+    for(c=0;c<colCount;c++){
+      var cls = 'col-'+(types[c]||'ignore');
+      html += '<td class="'+cls+'">'+esc(r[c]||'')+'</td>';
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if(dataRows.length > 5) html += '<div class="tp-more">… 共 '+dataRows.length+' 行数据，仅预览前 5 行</div>';
+
+  box.innerHTML = html;
+  /* 列头点击切换类型 */
+  Array.prototype.forEach.call(box.querySelectorAll('.tp-table th'), function(th){
+    th.addEventListener('click', function(){
+      var col = +th.getAttribute('data-col');
+      var cur = tableState.types[col];
+      tableState.types[col] = cur==='order' ? 'phone' : cur==='phone' ? 'ignore' : 'order';
+      renderTablePreview();
+      updateTableImportBtn();
+    });
+  });
+}
+
+function updateTableImportBtn(){
+  var btn = $('btn-table-import');
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  var hasData = tableState.rows.length > (tableState.headerRow?1:0);
+  btn.disabled = !(orderCol>=0 && phoneCol>=0 && hasData);
+}
+
+$('btn-table-parse').addEventListener('click', function(){
+  var txt = $('in-table').value.trim();
+  if(!txt){ toast('请先粘贴表格数据'); return; }
+  tableState.rows = parseTableText(txt);
+  if(!tableState.rows.length){ toast('无法解析表格数据'); return; }
+  var det = detectTableColumns(tableState.rows);
+  tableState.types = det.types;
+  tableState.headerRow = det.headerRow;
+  tableState.colCount = det.colCount;
+  renderTablePreview();
+  updateTableImportBtn();
+  toast('解析完成，共 '+tableState.rows.length+' 行');
+});
+
+$('btn-table-import').addEventListener('click', function(){
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  if(orderCol<0 || phoneCol<0){ toast('请先指定订单号列和手机号列'); return; }
+  var dataRows = tableState.headerRow ? tableState.rows.slice(1) : tableState.rows;
+  var added=0, skipped=0;
+  dataRows.forEach(function(r){
+    var phone = (r[phoneCol]||'').trim();
+    var order = (r[orderCol]||'').trim();
+    if(!phone || phone.replace(/[^\d+*#,;pw]/gi,'').length < 3){ skipped++; return; }
+    state.orders.push({order: order||('订单 '+(state.orders.length+1)), phone:phone});
+    added++;
+  });
+  save(); renderList();
+  $('in-table').value='';
+  $('table-preview').innerHTML='';
+  tableState = {rows:[],types:[],headerRow:false,colCount:0};
+  updateTableImportBtn();
+  toast('导入 '+added+' 条'+(skipped?'，跳过 '+skipped+' 条无效号码':''));
+});
+
+$('btn-table-clear').addEventListener('click', function(){
+  $('in-table').value='';
+  $('table-preview').innerHTML='';
+  tableState = {rows:[],types:[],headerRow:false,colCount:0};
+  updateTableImportBtn();
 });
 
 $('btn-clear').addEventListener('click', function(){
