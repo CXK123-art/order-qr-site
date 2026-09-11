@@ -121,33 +121,35 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ===== 查看器（拨打页） ===== */
-.viewer{max-width:560px;margin:0 auto;padding:26px 16px 56px}
-.viewer .v-head{text-align:center;margin-bottom:24px}
-.viewer .v-head h1{font-size:22px;font-weight:700}
-.viewer .v-head p{color:var(--muted);font-size:13px;margin-top:6px}
-.v-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-.v-table thead th{background:#F1F7F7;color:var(--muted);font-size:12.5px;font-weight:600;text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);letter-spacing:.3px}
-.v-table thead th.th-act{text-align:center}
-.v-table tbody td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
-.v-table tbody tr:last-child td{border-bottom:none}
-.td-order{font-size:14px;font-weight:600;color:var(--ink);word-break:break-all;line-height:1.4}
-.td-order small{display:block;font-size:10.5px;color:var(--muted);font-weight:400;margin-top:2px}
-.td-phone{white-space:nowrap}
-.td-phone a{color:var(--ink);font-size:15px;font-weight:600;text-decoration:none;font-family:ui-monospace,"SF Mono",Consolas,monospace;border-bottom:1.5px dashed #C4D4D4;padding-bottom:1px}
+.viewer{max-width:680px;margin:0 auto;padding:20px 12px 56px}
+.viewer .v-head{text-align:center;margin-bottom:18px}
+.viewer .v-head h1{font-size:20px;font-weight:700}
+.viewer .v-head p{color:var(--muted);font-size:12px;margin-top:4px}
+.v-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid #D8DEE4;box-shadow:var(--shadow)}
+.v-table thead th{background:#F2F3F5;color:#333;font-size:13px;font-weight:700;text-align:center;padding:10px 8px;border:1px solid #D8DEE4;letter-spacing:.3px;white-space:nowrap}
+.v-table thead th.th-left{text-align:left}
+.v-table tbody td{padding:10px 8px;border:1px solid #E4E8EC;vertical-align:middle;text-align:center;font-size:14px}
+.v-table tbody tr:nth-child(even){background:#FAFBFC}
+.td-idx{width:44px;font-weight:600;color:#555;font-size:14px}
+.td-order{text-align:left;font-size:13.5px;font-weight:600;color:var(--ink);word-break:break-all;line-height:1.4;min-width:100px}
+.td-phone{text-align:left;white-space:nowrap}
+.td-phone a{color:var(--ink);font-size:14px;font-weight:600;text-decoration:none;font-family:ui-monospace,"SF Mono",Consolas,monospace;border-bottom:1.5px dashed #C4D4D4;padding-bottom:1px}
 .td-phone a:hover{color:var(--brand)}
-.td-act{text-align:center;white-space:nowrap}
+.td-act{width:88px;white-space:nowrap}
+.td-duration{width:72px;font-size:13px;font-weight:600;color:#2E9E5A;line-height:1.4;white-space:nowrap}
+.td-duration.empty{color:#B0B8C0;font-weight:400}
 .dial{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border:none;border-radius:999px;
+  display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;border:none;border-radius:6px;
   background:var(--brand);color:#fff;font-size:14px;font-weight:700;font-family:inherit;
-  text-decoration:none;cursor:pointer;box-shadow:0 3px 10px rgba(13,110,110,.25);
-  transition:background .15s,transform .05s;letter-spacing:1px;min-width:76px;
+  text-decoration:none;cursor:pointer;box-shadow:0 2px 6px rgba(13,110,110,.2);
+  transition:background .15s,transform .05s;letter-spacing:1px;min-width:68px;
 }
 .dial:hover{background:var(--brand-deep)}
 .dial:active{transform:scale(.97)}
-.dial.called{background:var(--danger);box-shadow:0 3px 10px rgba(194,72,63,.3)}
-.dial.called:hover{background:#A93A32}
-.dial .sub{display:block;font-size:11px;font-weight:600;opacity:.95;letter-spacing:0;line-height:1.45}
-.v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:26px}
+.dial.called{background:#D93025;box-shadow:0 2px 6px rgba(217,48,37,.25)}
+.dial.called:hover{background:#B8261E}
+.dial .sub{display:block;font-size:10.5px;font-weight:600;opacity:.95;letter-spacing:0;line-height:1.4}
+.v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:22px}
 .v-empty{text-align:center;color:var(--muted);font-size:14px;padding:30px 10px;border:1px dashed var(--line);border-radius:12px;background:var(--card)}
 
 /* ===== 响应式 ===== */
@@ -161,10 +163,15 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
   .order-item .phone{padding:10px 14px;min-height:44px}
   .batch-grid{grid-template-columns:1fr}
   .dial{width:100%;justify-content:center}
-  .v-table thead th,.v-table tbody td{padding:9px 10px}
-  .td-act .dial{min-width:0;padding:8px 12px;font-size:13px}
-  .td-order{font-size:13px}
-  .td-phone a{font-size:13.5px}
+  .v-table{font-size:12px}
+  .v-table thead th{padding:8px 4px;font-size:11.5px}
+  .v-table tbody td{padding:8px 4px;font-size:12.5px}
+  .td-idx{width:32px;font-size:12px}
+  .td-order{font-size:12px;min-width:70px}
+  .td-phone a{font-size:12px}
+  .td-act{width:64px}
+  .td-act .dial{min-width:0;padding:7px 8px;font-size:12px}
+  .td-duration{width:56px;font-size:11.5px}
   .input{font-size:16px}
   textarea.input{font-size:16px}
 }
@@ -291,7 +298,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
     </div>
     <div class="search-box">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input id="v-search" class="input" placeholder="搜索订单号或手机号">
+      <input id="v-search" class="input" placeholder="输入序号或订单号或手机号搜索...">
     </div>
     <div id="v-list"></div>
     <div class="v-foot">本页由订单电话二维码生成器生成</div>
@@ -2833,14 +2840,49 @@ function isViewer(){ return /^#d=/.test(location.hash); }
 
 /* 拨打记录：存在本机 localStorage，标记已拨打并记录时间 */
 var DIAL_KEY = 'oqr_dial_log_v1';
+var pendingDial = {}; /* 正在进行的拨打：key -> 开始时间戳 */
 function getDialLog(){ try{ return JSON.parse(localStorage.getItem(DIAL_KEY)) || {}; }catch(e){ return {}; } }
 function dialKey(n, p){ return (n||'') + '|' + (p||''); }
+/* 兼容旧格式：旧记录是数字时间戳，新格式是 {time, duration} */
+function getCallRec(log, key){
+  var v = log[key];
+  if(!v) return null;
+  if(typeof v === 'number') return {time: v, duration: 0};
+  return v;
+}
 function fmtDialTime(ts){
   var d = new Date(ts), now = new Date();
   var hm = ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
   if(d.toDateString()===now.toDateString()) return '今天 ' + hm;
   return ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2) + ' ' + hm;
 }
+function fmtDuration(ms){
+  if(!ms || ms < 0) return '';
+  var sec = Math.floor(ms / 1000);
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return m + '分' + s + '秒';
+}
+/* 页面重新获得焦点时（挂断后返回浏览器），计算通话时长 */
+function settlePendingDial(){
+  var now = Date.now(), changed = false;
+  for(var key in pendingDial){
+    var start = pendingDial[key];
+    var duration = now - start;
+    if(duration > 3000){ /* 大于3秒才记录，过滤误触 */
+      var log = getDialLog();
+      var rec = getCallRec(log, key) || {time: now, duration: 0};
+      rec.duration = duration; rec.time = now;
+      log[key] = rec;
+      try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log)); }catch(e){}
+      changed = true;
+    }
+    delete pendingDial[key];
+  }
+  if(changed && isViewer()) renderViewer();
+}
+window.addEventListener('focus', settlePendingDial);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) settlePendingDial(); });
 
 function renderViewer(){
   var data = decodeData(location.hash.replace(/^#d=/,''));
@@ -2851,28 +2893,39 @@ function renderViewer(){
   $('v-title').textContent = data.t || '联系电话';
   var log = getDialLog();
   var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
-  var list = data.o.filter(function(item){
-    if(!q) return true;
-    return ((item.n||'').toLowerCase().indexOf(q)>=0) || ((String(item.p||'').toLowerCase().indexOf(q)>=0));
-  });
+  /* 保留原始序号，搜索时序号不变 */
+  var list = data.o.map(function(item, i){ return {item: item, idx: i+1}; })
+    .filter(function(x){
+      if(!q) return true;
+      var item = x.item;
+      return String(x.idx).indexOf(q)>=0 ||
+             ((item.n||'').toLowerCase().indexOf(q)>=0) ||
+             ((String(item.p||'').toLowerCase().indexOf(q)>=0));
+    });
   if(!list.length){
-    $('v-list').innerHTML = '<div class="v-empty">没有匹配「' + esc(q) + '」的订单号或手机号</div>';
+    $('v-list').innerHTML = '<div class="v-empty">没有匹配「' + esc(q) + '」的序号、订单号或手机号</div>';
     return;
   }
-  var html = '<table class="v-table"><thead><tr><th>订单号</th><th>手机号</th><th class="th-act">操作</th></tr></thead><tbody>';
-  list.forEach(function(item){
+  var html = '<table class="v-table"><thead><tr>' +
+    '<th>序号</th><th class="th-left">订单号</th><th class="th-left">电话号码</th><th>操作</th><th>通话时长</th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(x){
+    var item = x.item, idx = x.idx;
     var phone = String(item.p||'').trim();
     var key = dialKey(item.n, phone);
-    var called = log[key] || 0;
+    var rec = getCallRec(log, key);
+    var called = !!rec;
     var dialBtn = called
-      ? '<span class="sub">已拨打<br>' + esc(fmtDialTime(called)) + '</span>'
+      ? '<span class="sub">已拨打<br>' + esc(fmtDialTime(rec.time)) + '</span>'
       : '<span>拨打</span>';
-    /* 未拨打保持原始格式（横杠），已拨打分机号横杠变为中文逗号 */
-    var phoneDisplay = called ? formatPhoneDisplay(phone) : phone;
+    var hasDur = rec && rec.duration;
+    var durText = hasDur ? fmtDuration(rec.duration) : '—';
     html += '<tr>' +
+      '<td class="td-idx">' + idx + '</td>' +
       '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
-      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '" data-phone="' + esc(phone) + '">' + esc(phoneDisplay) + '</a></td>' +
+      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a></td>' +
       '<td class="td-act"><a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a></td>' +
+      '<td class="td-duration' + (hasDur ? '' : ' empty') + '">' + esc(durText) + '</td>' +
     '</tr>';
   });
   html += '</tbody></table>';
@@ -2880,20 +2933,15 @@ function renderViewer(){
   Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
     a.addEventListener('click', function(){
       var key = a.getAttribute('data-key');
+      var now = Date.now();
+      pendingDial[key] = now; /* 记录开始时间，挂断返回后计算时长 */
       var log2 = getDialLog();
-      log2[key] = Date.now();
+      var rec = getCallRec(log2, key) || {time: now, duration: 0};
+      rec.time = now;
+      log2[key] = rec;
       try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
       a.classList.add('called');
-      a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(log2[key])) + '</span>';
-      /* 点击拨打后，该行分机号横杠立即变为中文逗号 */
-      var row = a.closest('tr');
-      if(row){
-        var phoneLink = row.querySelector('.td-phone a');
-        if(phoneLink){
-          var orig = phoneLink.getAttribute('data-phone') || phoneLink.textContent;
-          phoneLink.textContent = formatPhoneDisplay(orig);
-        }
-      }
+      a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(now)) + '</span>';
     });
   });
 }
