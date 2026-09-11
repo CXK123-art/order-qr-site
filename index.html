@@ -3323,7 +3323,8 @@ document.addEventListener('visibilitychange', function(){ if(!document.hidden) s
 var viewerData = null; /* 活码模式下缓存已加载的数据，供搜索/重渲染使用 */
 function renderViewer(preloadedData){
   /* 活码模式：从 live-data.json 异步加载数据 */
-  if(preloadedData){ viewerData = preloadedData; }
+  /* 仅当 preloadedData 是有效数据对象时才缓存，防止事件对象等误覆盖 */
+  if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){ viewerData = preloadedData; }
   if(!preloadedData && /^#live/.test(location.hash)){
     if(viewerData){
       /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
@@ -3402,7 +3403,7 @@ function renderViewer(preloadedData){
     });
   });
 }
-if($('v-search')) $('v-search').addEventListener('input', renderViewer);
+if($('v-search')) $('v-search').addEventListener('input', function(){ renderViewer(); });
 
 /* ===== 初始化 ===== */
 if(isViewer()){
