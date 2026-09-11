@@ -2666,6 +2666,15 @@ function telHref(phone){
   return s;
 }
 
+/* 拨打页显示用：把"转"/"分机"/"ext"统一为逗号，清理逗号前后空格，合并连续逗号 */
+function formatPhoneDisplay(phone){
+  var s = String(phone).trim();
+  s = s.replace(/转|分机|ext\.?/gi, ',');
+  s = s.replace(/\s*,\s*/g, ',');
+  s = s.replace(/,{2,}/g, ',');
+  return s;
+}
+
 /* ===== 编辑器：添加与导入 ===== */
 function addOrder(order, phone){
   order = (order||'').trim(); phone = (phone||'').trim();
@@ -2853,7 +2862,7 @@ function renderViewer(){
       : '<span>拨打</span>';
     html += '<tr>' +
       '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
-      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a></td>' +
+      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(formatPhoneDisplay(phone)) + '</a></td>' +
       '<td class="td-act"><a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a></td>' +
     '</tr>';
   });
