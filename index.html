@@ -2734,8 +2734,8 @@ function telHref(phone){
   s = s.replace(/(\d{11})-(\d{2,6})(?!\d)/g, '$1,$2');
   /* 中文"转"/"分机"/"ext" → 英文逗号（等待约 2 秒后自动拨分机） */
   s = s.replace(/转|分机|ext\.?/gi, ',');
-  /* 去掉空格、括号、剩余横杠、下划线、点等纯格式字符；保留拨号有效字符 + * # , ; p w */
-  s = s.replace(/[\s()（）\-—_·]/g,'');
+  /* 去掉括号、横杠、下划线、点等纯格式字符；保留空格（虚拟号/400号码拨号需要）和拨号有效字符 + * # , ; p w */
+  s = s.replace(/[()（）\-—_·]/g,'');
   /* 00 开头的国际长途转 + */
   s = s.replace(/^00(\d)/,'+$1');
   return s;
@@ -2782,17 +2782,15 @@ $('btn-import').addEventListener('click', function(){
     return;
   }
   var n = Math.min(orders.length, phones.length);
-  var added = 0, skipped = 0;
+  var added = 0;
   for(var i=0;i<n;i++){
-    var phone = phones[i];
-    if(phone.replace(/[^\d+]/g,'').length < 5){ skipped++; continue; }
+    var phone = (phones[i]||'').trim();
     state.orders.push({order:orders[i] || ('订单 '+(state.orders.length+1)), phone:phone});
     added++;
   }
   save(); renderList(); $('in-orders').value=''; $('in-phones').value='';
   var msg = '导入 ' + added + ' 条';
   if(orders.length !== phones.length) msg += '（订单号 ' + orders.length + ' 行，手机号 ' + phones.length + ' 行，已按 ' + n + ' 行配对）';
-  if(skipped) msg += '，跳过 ' + skipped + ' 条无效号码';
   toast(msg);
 });
 
@@ -2956,11 +2954,10 @@ function doTableImport(){
   var phoneCol = tableState.types.indexOf('phone');
   if(orderCol<0 || phoneCol<0){ return {added:0, skipped:0, error:'未识别到订单号或手机号列'}; }
   var dataRows = tableState.headerRow ? tableState.rows.slice(1) : tableState.rows;
-  var added=0, skipped=0;
+  var added=0;
   dataRows.forEach(function(r){
     var phone = (r[phoneCol]||'').trim();
     var order = (r[orderCol]||'').trim();
-    if(!phone || phone.replace(/[^\d+*#,;pw]/gi,'').length < 3){ skipped++; return; }
     state.orders.push({order: order||('订单 '+(state.orders.length+1)), phone:phone});
     added++;
   });
@@ -2969,13 +2966,13 @@ function doTableImport(){
   $('table-preview').innerHTML='';
   tableState = {rows:[],types:[],headerRow:false,colCount:0};
   updateTableImportBtn();
-  return {added:added, skipped:skipped};
+  return {added:added};
 }
 
 $('btn-table-import').addEventListener('click', function(){
   var r = doTableImport();
   if(r.error){ toast(r.error); return; }
-  toast('导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条无效号码':''));
+  toast('导入 '+r.added+' 条');
 });
 
 /* 粘贴表格后自动识别并导入 */
@@ -3001,7 +2998,7 @@ $('in-table').addEventListener('paste', function(){
     if(orderCol>=0 && phoneCol>=0){
       var r = doTableImport();
       if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
-      toast('自动识别并导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条':''));
+      toast('自动识别并导入 '+r.added+' 条');
     } else {
       toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
     }
@@ -3023,7 +3020,7 @@ function importTableRows(rows, sourceName){
   if(orderCol>=0 && phoneCol>=0){
     var r = doTableImport();
     if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
-    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条':''));
+    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条');
   } else {
     toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
   }
@@ -3378,11 +3375,18 @@ function renderViewer(preloadedData){
       : '<span>拨打</span>';
     var hasDur = rec && rec.duration;
     var durText = hasDur ? fmtDuration(rec.duration) : '—';
+    var hasPhone = !!phone;
+    var phoneDisplay = hasPhone
+      ? '<a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a>'
+      : '<span style="color:#999">未填写</span>';
+    var dialDisplay = hasPhone
+      ? '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a>'
+      : '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">拨打</span>';
     html += '<tr>' +
       '<td class="td-idx">' + idx + '</td>' +
       '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
-      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a></td>' +
-      '<td class="td-act"><a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a></td>' +
+      '<td class="td-phone">' + phoneDisplay + '</td>' +
+      '<td class="td-act">' + dialDisplay + '</td>' +
       '<td class="td-duration' + (hasDur ? '' : ' empty') + '">' + esc(durText) + '</td>' +
     '</tr>';
   });
