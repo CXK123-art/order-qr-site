@@ -3157,16 +3157,17 @@ function genQR(){
   var warn = $('warn'), meta = $('qr-meta');
   warn.classList.remove('show');
   var compLen = enc.compressedLen || enc.b64.length;
-  if(compLen > 1900){
-    warn.innerHTML = '压缩后数据约 <b>' + compLen + '</b> 字符（原始 ' + enc.len + ' 字符），已接近二维码容量上限。条数过多时二维码会变得密集难扫，建议减少订单数或缩短订单号后重新生成。';
+  /* 二维码物理上限：版本40 + L级纠错 + 字节模式 ≈ 2950 字符；超过则无法生成 */
+  if(compLen > 2600){
+    warn.innerHTML = '压缩后数据约 <b>' + compLen + '</b> 字符（原始 ' + enc.len + ' 字符），已接近二维码物理上限（约 2950 字符）。二维码过密会难以扫描，建议减少订单数或缩短订单号。如需更多订单，可分批生成多个二维码。';
     warn.classList.add('show');
   }
-  if(compLen > 2250){
-    toast('数据过长（压缩后 ' + compLen + ' 字符），无法生成二维码，请减少订单数或缩短订单号');
+  if(compLen > 20000){
+    toast('数据过长（压缩后 ' + compLen + ' 字符），无法生成二维码，请减少订单数');
     return;
   }
   try{
-    var qr = qrcode(0,'M');
+    var qr = qrcode(0,'L');
     qr.addData(url);
     qr.make();
     drawQR(qr);
@@ -3177,7 +3178,7 @@ function genQR(){
     meta.textContent = tip;
     $('qr-stage').classList.add('show');
   }catch(e){
-    toast('数据过长，无法生成二维码，请减少订单数');
+    toast('数据过长，超出二维码物理上限（约2950字符），请减少订单数或分批生成');
   }
 }
 $('btn-qr').addEventListener('click', genQR);
