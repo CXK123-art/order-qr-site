@@ -2867,9 +2867,11 @@ function renderViewer(){
     var dialBtn = called
       ? '<span class="sub">已拨打<br>' + esc(fmtDialTime(called)) + '</span>'
       : '<span>拨打</span>';
+    /* 未拨打保持原始格式（横杠），已拨打分机号横杠变为中文逗号 */
+    var phoneDisplay = called ? formatPhoneDisplay(phone) : phone;
     html += '<tr>' +
       '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
-      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '">' + esc(formatPhoneDisplay(phone)) + '</a></td>' +
+      '<td class="td-phone"><a href="tel:' + esc(telHref(phone)) + '" data-phone="' + esc(phone) + '">' + esc(phoneDisplay) + '</a></td>' +
       '<td class="td-act"><a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a></td>' +
     '</tr>';
   });
@@ -2883,6 +2885,15 @@ function renderViewer(){
       try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
       a.classList.add('called');
       a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(log2[key])) + '</span>';
+      /* 点击拨打后，该行分机号横杠立即变为中文逗号 */
+      var row = a.closest('tr');
+      if(row){
+        var phoneLink = row.querySelector('.td-phone a');
+        if(phoneLink){
+          var orig = phoneLink.getAttribute('data-phone') || phoneLink.textContent;
+          phoneLink.textContent = formatPhoneDisplay(orig);
+        }
+      }
     });
   });
 }
