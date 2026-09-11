@@ -3331,11 +3331,14 @@ function renderViewer(preloadedData){
       return;
     }
     $('v-title').textContent = '加载中…';
-    fetch('live-data.json', {cache:'no-store'})
+    /* 加时间戳防止浏览器/CDN缓存，确保手机和电脑看到最新数据 */
+    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(function(d){ viewerData = d; renderViewer(d); })
       .catch(function(){
-        document.getElementById('view-viewer').innerHTML = '<div class="viewer"><div class="v-head"><h1>数据加载失败</h1><p>活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。</p></div></div>';
+        /* 加载失败时只替换列表区域，保留搜索框和页面结构 */
+        $('v-title').textContent = '数据加载失败';
+        $('v-list').innerHTML = '<div class="v-empty">活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。<br><br>可尝试下拉刷新页面。</div>';
       });
     return;
   }
