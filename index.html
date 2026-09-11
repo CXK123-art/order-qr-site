@@ -2735,6 +2735,13 @@ function isPhoneAllowInput(phoneStr){
   if(/[a-zA-Z\u4e00-\u9fa5]/.test(s)) return false;
   return true;
 }
+/* 订单号合法性：允许数字、空格、-、逗号、空串；含汉字/字母则不可录入 */
+function isOrderAllowInput(orderStr){
+  var s = (orderStr==null)?'':String(orderStr);
+  if(s==='') return true;
+  if(/[a-zA-Z\u4e00-\u9fa5]/.test(s)) return false;
+  return true;
+}
 function telHref(phone){
   var s = String(phone).trim();
   /* 手机号(11位)-分机号(2-6位) → 英文逗号（拨号协议要求英文逗号） */
@@ -2765,6 +2772,8 @@ function formatPhoneDisplay(phone){
 /* ===== 编辑器：添加与导入 ===== */
 function addOrder(order, phone){
   order = (order||'').trim(); phone = (phone||'').trim();
+  /* 订单号带汉字/字母禁止录入 */
+  if(order && !isOrderAllowInput(order)){ alert('订单号不能包含汉字、英文字母，请检查！'); return false; }
   if(!phone){ toast('请填写号码'); return false; }
   /* 带汉字/字母的号码禁止录入 */
   if(!isPhoneAllowInput(phone)){ alert('电话号码不能包含汉字、英文字母，请检查号码！'); return false; }
@@ -2791,15 +2800,17 @@ $('btn-import').addEventListener('click', function(){
   var n = Math.min(orders.length, phones.length);
   var added = 0, blocked = 0;
   for(var i=0;i<n;i++){
+    var order = (orders[i]||'').trim();
     var phone = (phones[i]||'').trim();
-    /* 带汉字/字母的号码拦截，不导入 */
+    /* 订单号或号码含汉字/字母，该行拦截不导入 */
+    if(order && !isOrderAllowInput(order)){ blocked++; continue; }
     if(!isPhoneAllowInput(phone)){ blocked++; continue; }
-    state.orders.push({order:orders[i] || ('订单 '+(state.orders.length+1)), phone:phone});
+    state.orders.push({order:order || ('订单 '+(state.orders.length+1)), phone:phone});
     added++;
   }
   save(); renderList(); $('in-orders').value=''; $('in-phones').value='';
   var msg = '导入 ' + added + ' 条';
-  if(blocked) msg += '，拦截 ' + blocked + ' 条含有文字的号码';
+  if(blocked) msg += '，拦截 ' + blocked + ' 条含文字的行';
   if(orders.length !== phones.length) msg += '（订单号 ' + orders.length + ' 行，手机号 ' + phones.length + ' 行，已按 ' + n + ' 行配对）';
   toast(msg);
 });
@@ -2968,7 +2979,8 @@ function doTableImport(){
   dataRows.forEach(function(r){
     var phone = (r[phoneCol]||'').trim();
     var order = (r[orderCol]||'').trim();
-    /* 带汉字/字母的号码拦截，不导入 */
+    /* 订单号或号码含汉字/字母，该行拦截不导入 */
+    if(order && !isOrderAllowInput(order)){ blocked++; return; }
     if(!isPhoneAllowInput(phone)){ blocked++; return; }
     state.orders.push({order: order||('订单 '+(state.orders.length+1)), phone:phone});
     added++;
@@ -2984,7 +2996,7 @@ function doTableImport(){
 $('btn-table-import').addEventListener('click', function(){
   var r = doTableImport();
   if(r.error){ toast(r.error); return; }
-  toast('导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含有文字的号码':''));
+  toast('导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
 });
 
 /* 粘贴表格后自动识别并导入 */
@@ -3010,7 +3022,7 @@ $('in-table').addEventListener('paste', function(){
     if(orderCol>=0 && phoneCol>=0){
       var r = doTableImport();
       if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
-      toast('自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含有文字的号码':''));
+      toast('自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
     } else {
       toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
     }
@@ -3032,7 +3044,7 @@ function importTableRows(rows, sourceName){
   if(orderCol>=0 && phoneCol>=0){
     var r = doTableImport();
     if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
-    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含有文字的号码':''));
+    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
   } else {
     toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
   }
@@ -3391,9 +3403,18 @@ function renderViewer(preloadedData){
     /* 号码含汉字/字母：标红警告并禁用拨打（兼容历史脏数据） */
     var invalidPhone = hasPhone && !isPhoneAllowInput(phone);
     var phoneDisplay, dialDisplay;
-    if(invalidPhone){
-      phoneDisplay = '<span style="color:#D93025;font-weight:600">' + esc(phone) + '<br><small style="font-weight:400;color:#999">号码含非法文字</small></span>';
+    /* 订单号含文字：标红警告，整行禁用拨打 */
+    var invalidOrder = item.n && !isOrderAllowInput(item.n);
+    var orderDisplay = invalidOrder
+      ? '<span style="color:#D93025;font-weight:600">' + esc(item.n) + '<br><small style="font-weight:400;color:#999">订单号含非法文字</small></span>'
+      : esc(item.n||'未填写');
+    if(invalidOrder || invalidPhone){
       dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">不可拨打</span>';
+      if(invalidOrder){
+        phoneDisplay = '<span style="color:#999">'+ (hasPhone? esc(phone) : '未填写') +'</span>';
+      } else if(invalidPhone){
+        phoneDisplay = '<span style="color:#D93025;font-weight:600">' + esc(phone) + '<br><small style="font-weight:400;color:#999">号码含非法文字</small></span>';
+      }
     } else if(hasPhone){
       phoneDisplay = '<a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a>';
       dialDisplay = '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a>';
@@ -3403,7 +3424,7 @@ function renderViewer(preloadedData){
     }
     html += '<tr>' +
       '<td class="td-idx">' + idx + '</td>' +
-      '<td class="td-order">' + esc(item.n||'未填写') + '</td>' +
+      '<td class="td-order">' + orderDisplay + '</td>' +
       '<td class="td-phone">' + phoneDisplay + '</td>' +
       '<td class="td-act">' + dialDisplay + '</td>' +
       '<td class="td-duration' + (hasDur ? '' : ' empty') + '">' + esc(durText) + '</td>' +
