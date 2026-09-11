@@ -326,8 +326,12 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
             <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
           </div>
-          <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7">
-            活码二维码链接固定不变。更新订单后：导出 <b>live-data.json</b> → 上传到 GitHub 仓库根目录覆盖旧文件 → 扫码自动看到最新数据，无需重新生成二维码。
+          <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8">
+            <b style="color:var(--brand)">活码使用步骤（订单变更后只需重复第1-2步）：</b><br>
+            ① 点「导出活码数据」下载 <b>live-data.json</b>（生成活码时已自动下载）<br>
+            ② 点下方「上传到 GitHub」→ 把下载的文件拖进去 → Commit changes<br>
+            ③ 等待约 30 秒后扫码，即可看到最新订单数据<br>
+            <a href="https://github.com/CXK123-art/order-qr-site/upload/main" target="_blank" style="display:inline-block;margin-top:6px;padding:4px 12px;background:var(--brand);color:#fff;border-radius:6px;text-decoration:none;font-size:12px">上传到 GitHub</a>
           </div>
           <div class="warn" id="warn"></div>
           <div class="qr-stage" id="qr-stage">
@@ -3204,11 +3208,14 @@ function genLiveQR(){
     qr.addData(url);
     qr.make();
     drawQR(qr);
-    $('qr-meta').innerHTML = '<b>活码</b>（链接固定不变）· 共 ' + state.orders.length + ' 个订单 · 更新数据无需重新生成二维码';
+    $('qr-meta').innerHTML = '<b>活码</b>（链接固定不变）· 当前管理页共 ' + state.orders.length + ' 个订单 · 上传数据文件后扫码显示最新订单';
     $('qr-stage').classList.add('show');
     $('live-actions').style.display = 'flex';
     $('live-hint').style.display = 'block';
     $('warn').classList.remove('show');
+    /* 生成活码时自动导出当前数据文件 */
+    setTimeout(function(){ exportLiveData(); }, 600);
+    toast('活码已生成，live-data.json 已自动下载，请按下方步骤上传');
   }catch(e){ toast('生成活码失败'); }
 }
 $('btn-live-qr').addEventListener('click', genLiveQR);
