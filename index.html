@@ -355,6 +355,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script id="qrlib-src">//---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript
@@ -3101,14 +3102,30 @@ function buildPayload(){
 }
 function encodeData(obj){
   var json = JSON.stringify(obj);
-  var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  return {b64:b64, len:json.length};
+  /* LZ-string 压缩后转 URL 安全 base64，前缀 z: 标记压缩格式 */
+  var compressed = (typeof LZString !== 'undefined') ? LZString.compressToBase64(json) : null;
+  if(compressed){
+    var b64 = compressed.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    return {b64: 'z:' + b64, len: json.length, compressedLen: b64.length + 2};
+  }
+  /* 降级：未压缩 base64（旧格式） */
+  var b64old = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return {b64: b64old, len: json.length, compressedLen: b64old.length};
 }
 function decodeData(s){
   try{
-    var b64 = s.replace(/-/g,'+').replace(/_/g,'/');
-    while(b64.length%4) b64 += '=';
-    return JSON.parse(decodeURIComponent(escape(atob(b64))));
+    if(s.indexOf('z:') === 0 && typeof LZString !== 'undefined'){
+      /* 新格式：LZ-string 压缩 */
+      var b64 = s.slice(2).replace(/-/g,'+').replace(/_/g,'/');
+      while(b64.length%4) b64 += '=';
+      var json = LZString.decompressFromBase64(b64);
+      if(json) return JSON.parse(json);
+      return null;
+    }
+    /* 旧格式：未压缩 base64（向后兼容旧二维码） */
+    var b64old = s.replace(/-/g,'+').replace(/_/g,'/');
+    while(b64old.length%4) b64old += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(b64old))));
   }catch(e){ return null; }
 }
 function baseUrl(){
@@ -3135,20 +3152,25 @@ function drawQR(qr){
 }
 function genQR(){
   if(!state.orders.length){ toast('请先添加订单'); return; }
-  var url = dialUrl();
   var enc = encodeData(buildPayload());
+  var url = dialUrl();
   var warn = $('warn'), meta = $('qr-meta');
   warn.classList.remove('show');
-  if(enc.len > 1900){
-    warn.innerHTML = '当前订单数据约 <b>' + enc.len + '</b> 字符，已接近二维码容量上限（约 2300 字符）。条数过多时二维码会变得密集难扫，建议减少订单数或缩短订单号后重新生成。';
+  var compLen = enc.compressedLen || enc.b64.length;
+  if(compLen > 1900){
+    warn.innerHTML = '压缩后数据约 <b>' + compLen + '</b> 字符（原始 ' + enc.len + ' 字符），已接近二维码容量上限。条数过多时二维码会变得密集难扫，建议减少订单数或缩短订单号后重新生成。';
     warn.classList.add('show');
+  }
+  if(compLen > 2250){
+    toast('数据过长（压缩后 ' + compLen + ' 字符），无法生成二维码，请减少订单数或缩短订单号');
+    return;
   }
   try{
     var qr = qrcode(0,'M');
     qr.addData(url);
     qr.make();
     drawQR(qr);
-    var tip = '共 ' + state.orders.length + ' 个订单，数据 ' + enc.len + ' 字符';
+    var tip = '共 ' + state.orders.length + ' 个订单，原始 ' + enc.len + ' 字符，压缩后 ' + compLen + ' 字符';
     if(isLocalFile() && !(state.baseUrl||'').trim()){
       tip += ' · 本地文件模式，仅可本机测试';
     }
