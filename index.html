@@ -82,6 +82,9 @@ body{
 .order-item .phone{font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:15px;font-weight:600;color:var(--brand);text-decoration:none;padding:4px 10px;border-radius:8px;background:var(--brand-soft);min-height:32px;display:inline-flex;align-items:center}
 .order-item .phone:hover{background:#D8ECE9}
 .order-item .ops{display:flex;gap:6px}
+.search-box{position:relative;margin-bottom:12px}
+.search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9AA8B5;pointer-events:none}
+.search-box .input{padding-left:38px}
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 10px;border:1px dashed var(--line);border-radius:12px}
 textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .batch-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
@@ -137,7 +140,9 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 }
 .dial:hover{background:var(--brand-deep)}
 .dial:active{transform:scale(.98)}
-.dial .sub{display:block;font-size:10px;font-weight:500;opacity:.8;letter-spacing:1px}
+.dial.called{background:var(--danger);box-shadow:0 4px 12px rgba(194,72,63,.3)}
+.dial.called:hover{background:#A93A32}
+.dial .sub{display:block;font-size:10px;font-weight:500;opacity:.85;letter-spacing:1px}
 .v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:26px}
 
 /* ===== 响应式 ===== */
@@ -235,6 +240,10 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
               <span id="count" class="count">0 条</span>
               <button id="btn-clear" class="btn danger sm" type="button">清空</button>
             </span>
+          </div>
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="in-search" class="input" placeholder="搜索订单号或手机号">
           </div>
           <div id="list"></div>
         </div>
@@ -2594,19 +2603,35 @@ try{ var saved = JSON.parse(localStorage.getItem(LS_KEY)); if(saved && Array.isA
 
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
 
-/* ===== 编辑器：列表渲染 ===== */
+/* ===== 编辑器：列表渲染（支持搜索） ===== */
+function visibleOrders(){
+  var el = $('in-search');
+  var q = (el ? el.value : '').trim().toLowerCase();
+  var arr = state.orders.map(function(o,i){ return {o:o, i:i}; });
+  if(!q) return arr;
+  return arr.filter(function(x){
+    return ((x.o.order||'').toLowerCase().indexOf(q)>=0) || ((x.o.phone||'').toLowerCase().indexOf(q)>=0);
+  });
+}
 function renderList(){
-  var box = $('list'), html = '';
-  $('count').textContent = state.orders.length + ' 条';
+  var box = $('list'), html = '', vis = visibleOrders();
+  var el = $('in-search');
+  var q = (el ? el.value : '').trim();
+  $('count').textContent = state.orders.length + (vis.length!==state.orders.length ? (' / 匹配 ' + vis.length) : '') + ' 条';
   if(!state.orders.length){
     box.innerHTML = '<div class="empty">还没有订单，先在左侧添加订单或批量导入。</div>';
     return;
   }
-  state.orders.forEach(function(o,i){
+  if(!vis.length){
+    box.innerHTML = '<div class="empty">没有匹配「' + esc(q) + '」的订单号或手机号，换个关键词试试。</div>';
+    return;
+  }
+  vis.forEach(function(x){
+    var o = x.o;
     html += '<div class="order-item">' +
       '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + '</div>' +
       '<a class="phone" href="tel:' + esc(telHref(o.phone)) + '">' + esc(o.phone) + '</a>' +
-      '<div class="ops"><button class="btn danger sm" type="button" data-del="' + i + '">删除</button></div>' +
+      '<div class="ops"><button class="btn danger sm" type="button" data-del="' + x.i + '">删除</button></div>' +
     '</div>';
   });
   box.innerHTML = html;
@@ -2616,6 +2641,7 @@ function renderList(){
     });
   });
 }
+if($('in-search')) $('in-search').addEventListener('input', renderList);
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function telHref(phone){
   return String(phone).replace(/[\s()（）\-—]/g,'').replace(/^00(\d+)/,'+$1');
@@ -2768,6 +2794,18 @@ $('in-base').addEventListener('input', function(){ state.baseUrl = this.value; s
 
 /* ===== 查看器（扫码拨打页） ===== */
 function isViewer(){ return /^#d=/.test(location.hash); }
+
+/* 拨打记录：存在本机 localStorage，标记已拨打并记录时间 */
+var DIAL_KEY = 'oqr_dial_log_v1';
+function getDialLog(){ try{ return JSON.parse(localStorage.getItem(DIAL_KEY)) || {}; }catch(e){ return {}; } }
+function dialKey(n, p){ return (n||'') + '|' + (p||''); }
+function fmtDialTime(ts){
+  var d = new Date(ts), now = new Date();
+  var hm = ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+  if(d.toDateString()===now.toDateString()) return '今天 ' + hm;
+  return ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2) + ' ' + hm;
+}
+
 function renderViewer(){
   var data = decodeData(location.hash.replace(/^#d=/,''));
   if(!data || !Array.isArray(data.o) || !data.o.length){
@@ -2775,18 +2813,33 @@ function renderViewer(){
     return;
   }
   $('v-title').textContent = data.t || '联系电话';
+  var log = getDialLog();
   var html = '';
   data.o.forEach(function(item){
     var phone = String(item.p||'').trim();
+    var key = dialKey(item.n, phone);
+    var called = log[key] || 0;
     html += '<div class="v-card">' +
       '<div class="v-order"><b>' + esc(item.n||'未填写') + '</b>订单号</div>' +
-      '<a class="dial" href="tel:' + esc(telHref(phone)) + '">' +
+      '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' +
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2z"/></svg>' +
-        '<span>' + esc(phone) + '<span class="sub">点击拨打</span></span>' +
+        '<span><span class="dial-num">' + esc(phone) + '</span>' +
+        '<span class="sub">' + (called ? '已拨打 ' + fmtDialTime(called) : '点击拨打') + '</span></span>' +
       '</a>' +
     '</div>';
   });
   $('v-list').innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
+    a.addEventListener('click', function(){
+      var key = a.getAttribute('data-key');
+      var log2 = getDialLog();
+      log2[key] = Date.now();
+      try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
+      a.classList.add('called');
+      var sub = a.querySelector('.sub');
+      if(sub) sub.textContent = '已拨打 ' + fmtDialTime(log2[key]);
+    });
+  });
 }
 
 /* ===== 初始化 ===== */
