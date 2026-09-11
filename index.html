@@ -144,6 +144,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .dial.called:hover{background:#A93A32}
 .dial .sub{display:block;font-size:10px;font-weight:500;opacity:.85;letter-spacing:1px}
 .v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:26px}
+.v-empty{text-align:center;color:var(--muted);font-size:14px;padding:30px 10px;border:1px dashed var(--line);border-radius:12px;background:var(--card)}
 
 /* ===== 响应式 ===== */
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:18px;align-items:start}
@@ -280,6 +281,10 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
     <div class="v-head">
       <h1 id="v-title">联系电话</h1>
       <p>点击号码直接拨打</p>
+    </div>
+    <div class="search-box">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="v-search" class="input" placeholder="搜索订单号或手机号">
     </div>
     <div id="v-list"></div>
     <div class="v-foot">本页由订单电话二维码生成器生成</div>
@@ -2814,8 +2819,17 @@ function renderViewer(){
   }
   $('v-title').textContent = data.t || '联系电话';
   var log = getDialLog();
+  var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
+  var list = data.o.filter(function(item){
+    if(!q) return true;
+    return ((item.n||'').toLowerCase().indexOf(q)>=0) || ((String(item.p||'').toLowerCase().indexOf(q)>=0));
+  });
+  if(!list.length){
+    $('v-list').innerHTML = '<div class="v-empty">没有匹配「' + esc(q) + '」的订单号或手机号</div>';
+    return;
+  }
   var html = '';
-  data.o.forEach(function(item){
+  list.forEach(function(item){
     var phone = String(item.p||'').trim();
     var key = dialKey(item.n, phone);
     var called = log[key] || 0;
@@ -2841,6 +2855,7 @@ function renderViewer(){
     });
   });
 }
+if($('v-search')) $('v-search').addEventListener('input', renderViewer);
 
 /* ===== 初始化 ===== */
 if(isViewer()){
