@@ -318,6 +318,17 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M18 14h2M14 18h2M18 18h2M20 20h-2v-2M16 16v4"/></svg>
             生成二维码
           </button>
+          <button id="btn-live-qr" class="btn ghost" type="button" style="width:100%;margin-top:8px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            生成活码（内容可更新）
+          </button>
+          <div id="live-actions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
+            <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
+          </div>
+          <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7">
+            活码二维码链接固定不变。更新订单后：导出 <b>live-data.json</b> → 上传到 GitHub 仓库根目录覆盖旧文件 → 扫码自动看到最新数据，无需重新生成二维码。
+          </div>
           <div class="warn" id="warn"></div>
           <div class="qr-stage" id="qr-stage">
             <div class="qr-canvas-box"><canvas id="qr-canvas" width="560" height="560"></canvas></div>
@@ -3183,6 +3194,41 @@ function genQR(){
 }
 $('btn-qr').addEventListener('click', genQR);
 
+/* ===== 活码：固定链接 + 外部数据文件 ===== */
+function liveDataJSON(){ return JSON.stringify(buildPayload(), null, 2); }
+function genLiveQR(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  var url = baseUrl() + '#live';
+  try{
+    var qr = qrcode(0,'M');
+    qr.addData(url);
+    qr.make();
+    drawQR(qr);
+    $('qr-meta').innerHTML = '<b>活码</b>（链接固定不变）· 共 ' + state.orders.length + ' 个订单 · 更新数据无需重新生成二维码';
+    $('qr-stage').classList.add('show');
+    $('live-actions').style.display = 'flex';
+    $('live-hint').style.display = 'block';
+    $('warn').classList.remove('show');
+  }catch(e){ toast('生成活码失败'); }
+}
+$('btn-live-qr').addEventListener('click', genLiveQR);
+
+$('btn-export-live').addEventListener('click', function(){
+  var blob = new Blob([liveDataJSON()], {type:'application/json'});
+  var a = document.createElement('a');
+  a.download = 'live-data.json';
+  a.href = URL.createObjectURL(blob);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  toast('已导出 live-data.json，请上传到 GitHub 仓库根目录');
+});
+$('btn-copy-live').addEventListener('click', function(){
+  var text = liveDataJSON();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('活码数据已复制'); }, function(){ fallbackCopy(text); });
+  } else fallbackCopy(text);
+});
+
 $('btn-download').addEventListener('click', function(){
   var a = document.createElement('a');
   a.download = '订单电话二维码.png';
@@ -3219,7 +3265,7 @@ $('in-title').addEventListener('input', function(){ state.title = this.value; sa
 $('in-base').addEventListener('input', function(){ state.baseUrl = this.value; save(); });
 
 /* ===== 查看器（扫码拨打页） ===== */
-function isViewer(){ return /^#d=/.test(location.hash); }
+function isViewer(){ return /^#d=/.test(location.hash) || /^#live/.test(location.hash); }
 
 /* 拨打记录：存在本机 localStorage，标记已拨打并记录时间 */
 var DIAL_KEY = 'oqr_dial_log_v1';
@@ -3267,8 +3313,19 @@ function settlePendingDial(){
 window.addEventListener('focus', settlePendingDial);
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) settlePendingDial(); });
 
-function renderViewer(){
-  var data = decodeData(location.hash.replace(/^#d=/,''));
+function renderViewer(preloadedData){
+  /* 活码模式：从 live-data.json 异步加载数据 */
+  if(!preloadedData && /^#live/.test(location.hash)){
+    $('v-title').textContent = '加载中…';
+    fetch('live-data.json', {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(d){ renderViewer(d); })
+      .catch(function(){
+        document.getElementById('view-viewer').innerHTML = '<div class="viewer"><div class="v-head"><h1>数据加载失败</h1><p>活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。</p></div></div>';
+      });
+    return;
+  }
+  var data = preloadedData || decodeData(location.hash.replace(/^#d=/,''));
   if(!data || !Array.isArray(data.o) || !data.o.length){
     document.getElementById('view-viewer').innerHTML = '<div class="viewer"><div class="v-head"><h1>数据无效</h1><p>这个二维码缺少有效订单数据。</p></div></div>';
     return;
