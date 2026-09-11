@@ -2775,8 +2775,8 @@ $('btn-import').addEventListener('click', function(){
   var ordersTxt = $('in-orders').value.trim();
   var phonesTxt = $('in-phones').value.trim();
   if(!ordersTxt && !phonesTxt){ toast('请先粘贴订单号和手机号'); return; }
-  var orders = ordersTxt ? ordersTxt.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean) : [];
-  var phones = phonesTxt ? phonesTxt.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean) : [];
+  var orders = ordersTxt ? ordersTxt.split(/\r?\n/).map(function(l){ return l.trim(); }) : [];
+  var phones = phonesTxt ? phonesTxt.split(/\r?\n/).map(function(l){ return l.trim(); }) : [];
   if(!orders.length || !phones.length){
     toast(orders.length ? '手机号栏为空，请粘贴手机号' : '订单号栏为空，请粘贴订单号');
     return;
