@@ -104,6 +104,13 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .tp-table td.col-order{color:#1565C0;font-weight:600}
 .tp-table td.col-ignore{color:#BBB}
 .tp-more{font-size:12px;color:var(--muted);text-align:center;padding:4px}
+/* ===== 拖拽导入 ===== */
+.table-drop-zone{position:relative;transition:all .2s}
+.table-drop-zone.drag-over{outline:3px dashed var(--brand);outline-offset:4px;background:#F0F9F8;border-radius:8px}
+.table-drop-hint{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.table-drop-hint .drop-icon{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--bg);border:1px solid var(--line);border-radius:6px;font-size:11px;color:#555;cursor:pointer;transition:background .15s}
+.table-drop-hint .drop-icon:hover{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-deep)}
+.table-drop-hint .drop-icon input{display:none}
 .field-label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px}
 .field-label b{color:var(--brand);font-weight:600}
 
@@ -245,8 +252,19 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
         </div>
 
         <div class="card">
-          <div class="card-title">表格智能导入<span class="sub">从Excel复制表格粘贴，自动识别订单号和手机号列</span></div>
-          <textarea id="in-table" class="input mono" rows="5" placeholder="从Excel复制表格后直接粘贴到这里&#10;支持Tab分隔、CSV逗号分隔&#10;自动识别哪列是订单号、哪列是手机号"></textarea>
+          <div class="card-title">表格智能导入<span class="sub">从Excel复制粘贴，或直接拖拽Excel/CSV文件到此处，自动识别并导入</span></div>
+          <div class="table-drop-zone" id="table-drop-zone">
+            <textarea id="in-table" class="input mono" rows="4" placeholder="从Excel复制表格后直接粘贴到这里，自动识别并导入&#10;或把 .xlsx / .xls / .csv 文件拖拽到此处"></textarea>
+          </div>
+          <div class="table-drop-hint">
+            <span>支持拖拽导入：</span>
+            <label class="drop-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              选择文件
+              <input type="file" id="in-table-file" accept=".xlsx,.xls,.csv,.txt,.tsv">
+            </label>
+            <span>.xlsx / .xls / .csv</span>
+          </div>
           <div class="row" style="margin-top:10px;gap:8px">
             <button id="btn-table-parse" class="btn plain" type="button">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -256,7 +274,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <button id="btn-table-clear" class="btn plain" type="button">清空</button>
           </div>
           <div id="table-preview" style="margin-top:12px"></div>
-          <div class="hint">点击列头可切换列类型（<b>订单号</b>/<b>手机号</b>/<b>忽略</b>）；首行若为表头会自动跳过；解析后点「确认导入」批量添加。</div>
+          <div class="hint">拖拽文件或粘贴表格后自动识别导入；点击列头可切换列类型（<b>订单号</b>/<b>手机号</b>/<b>忽略</b>）；首行若为表头会自动跳过。</div>
         </div>
 
         <div class="card">
@@ -336,6 +354,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script id="qrlib-src">//---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript
@@ -2916,10 +2935,10 @@ $('btn-table-parse').addEventListener('click', function(){
   toast('解析完成，共 '+tableState.rows.length+' 行');
 });
 
-$('btn-table-import').addEventListener('click', function(){
+function doTableImport(){
   var orderCol = tableState.types.indexOf('order');
   var phoneCol = tableState.types.indexOf('phone');
-  if(orderCol<0 || phoneCol<0){ toast('请先指定订单号列和手机号列'); return; }
+  if(orderCol<0 || phoneCol<0){ return {added:0, skipped:0, error:'未识别到订单号或手机号列'}; }
   var dataRows = tableState.headerRow ? tableState.rows.slice(1) : tableState.rows;
   var added=0, skipped=0;
   dataRows.forEach(function(r){
@@ -2934,8 +2953,135 @@ $('btn-table-import').addEventListener('click', function(){
   $('table-preview').innerHTML='';
   tableState = {rows:[],types:[],headerRow:false,colCount:0};
   updateTableImportBtn();
-  toast('导入 '+added+' 条'+(skipped?'，跳过 '+skipped+' 条无效号码':''));
+  return {added:added, skipped:skipped};
+}
+
+$('btn-table-import').addEventListener('click', function(){
+  var r = doTableImport();
+  if(r.error){ toast(r.error); return; }
+  toast('导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条无效号码':''));
 });
+
+/* 粘贴表格后自动识别并导入 */
+var tablePasteTimer = null;
+$('in-table').addEventListener('paste', function(){
+  if(tablePasteTimer) clearTimeout(tablePasteTimer);
+  tablePasteTimer = setTimeout(function(){
+    var txt = $('in-table').value.trim();
+    if(!txt) return;
+    var rows = parseTableText(txt);
+    if(!rows.length || rows.length < 1){ toast('无法解析表格数据'); return; }
+    /* 只有多行且多列才自动导入，单行输入不触发 */
+    if(rows.length < 2 || rows[0].length < 2){ return; }
+    tableState.rows = rows;
+    var det = detectTableColumns(rows);
+    tableState.types = det.types;
+    tableState.headerRow = det.headerRow;
+    tableState.colCount = det.colCount;
+    renderTablePreview();
+    updateTableImportBtn();
+    var orderCol = tableState.types.indexOf('order');
+    var phoneCol = tableState.types.indexOf('phone');
+    if(orderCol>=0 && phoneCol>=0){
+      var r = doTableImport();
+      if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
+      toast('自动识别并导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条':''));
+    } else {
+      toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
+    }
+  }, 400);
+});
+
+/* ===== 拖拽文件 / 选择文件导入 ===== */
+function importTableRows(rows, sourceName){
+  if(!rows || !rows.length){ toast('文件中没有数据'); return; }
+  tableState.rows = rows;
+  var det = detectTableColumns(rows);
+  tableState.types = det.types;
+  tableState.headerRow = det.headerRow;
+  tableState.colCount = det.colCount;
+  renderTablePreview();
+  updateTableImportBtn();
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  if(orderCol>=0 && phoneCol>=0){
+    var r = doTableImport();
+    if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
+    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条'+(r.skipped?'，跳过 '+r.skipped+' 条':''));
+  } else {
+    toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
+  }
+}
+
+function handleTableFile(file){
+  if(!file) return;
+  var name = file.name.toLowerCase();
+  var isExcel = /\.(xlsx|xls)$/.test(name);
+  var isText = /\.(csv|txt|tsv)$/.test(name);
+  if(!isExcel && !isText){ toast('不支持的文件格式，请使用 .xlsx / .xls / .csv'); return; }
+
+  if(isText){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var text = e.target.result;
+      var rows = parseTableText(text);
+      importTableRows(rows, file.name);
+    };
+    reader.onerror = function(){ toast('文件读取失败'); };
+    reader.readAsText(file, 'UTF-8');
+    return;
+  }
+
+  /* Excel 文件用 SheetJS 解析 */
+  if(typeof XLSX === 'undefined'){ toast('Excel解析库加载中，请稍后重试'); return; }
+  var reader2 = new FileReader();
+  reader2.onload = function(e){
+    try{
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array'});
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      /* 过滤全空行 */
+      rows = rows.filter(function(r){ return r && r.some(function(c){ return String(c||'').trim(); }); });
+      /* 数字转字符串 */
+      rows = rows.map(function(r){ return r.map(function(c){ return String(c==null?'':c).trim(); }); });
+      importTableRows(rows, file.name);
+    }catch(err){
+      toast('Excel解析失败：'+err.message);
+    }
+  };
+  reader2.onerror = function(){ toast('文件读取失败'); };
+  reader2.readAsArrayBuffer(file);
+}
+
+/* 拖拽事件 */
+var dropZone = $('table-drop-zone');
+if(dropZone){
+  dropZone.addEventListener('dragover', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+  });
+  dropZone.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+    var files = e.dataTransfer.files;
+    if(files && files.length){ handleTableFile(files[0]); }
+  });
+}
+
+/* 选择文件按钮 */
+if($('in-table-file')){
+  $('in-table-file').addEventListener('change', function(e){
+    if(e.target.files && e.target.files.length){
+      handleTableFile(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+}
 
 $('btn-table-clear').addEventListener('click', function(){
   $('in-table').value='';
