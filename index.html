@@ -2657,21 +2657,28 @@ if($('in-search')) $('in-search').addEventListener('input', renderList);
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function telHref(phone){
   var s = String(phone).trim();
-  /* 去掉空格、括号、横杠、下划线、点等纯格式字符；保留拨号有效字符 + * # , ; p w */
+  /* 手机号(11位)-分机号(2-6位) → 英文逗号（拨号协议要求英文逗号） */
+  s = s.replace(/(\d{11})-(\d{2,6})(?!\d)/g, '$1,$2');
+  /* 中文"转"/"分机"/"ext" → 英文逗号（等待约 2 秒后自动拨分机） */
+  s = s.replace(/转|分机|ext\.?/gi, ',');
+  /* 去掉空格、括号、剩余横杠、下划线、点等纯格式字符；保留拨号有效字符 + * # , ; p w */
   s = s.replace(/[\s()（）\-—_·]/g,'');
   /* 00 开头的国际长途转 + */
   s = s.replace(/^00(\d)/,'+$1');
-  /* 中文"转"/"分机"/"ext" → 逗号（等待约 2 秒后自动拨分机） */
-  s = s.replace(/转|分机|ext\.?/gi, ',');
   return s;
 }
 
-/* 拨打页显示用：把"转"/"分机"/"ext"统一为逗号，清理逗号前后空格，合并连续逗号 */
+/* 拨打页显示用：手机号-分机号、"转"/"分机"/"ext"统一为中文逗号，清理空格，合并连续逗号 */
 function formatPhoneDisplay(phone){
   var s = String(phone).trim();
-  s = s.replace(/转|分机|ext\.?/gi, ',');
-  s = s.replace(/\s*,\s*/g, ',');
-  s = s.replace(/,{2,}/g, ',');
+  /* 手机号(11位)-分机号(2-6位) → 中文逗号 */
+  s = s.replace(/(\d{11})-(\d{2,6})(?!\d)/g, '$1，$2');
+  /* "转"/"分机"/"ext" → 中文逗号 */
+  s = s.replace(/转|分机|ext\.?/gi, '，');
+  /* 清理中英文逗号前后空格 */
+  s = s.replace(/\s*[，,]\s*/g, '，');
+  /* 合并连续逗号 */
+  s = s.replace(/[，,]{2,}/g, '，');
   return s;
 }
 
