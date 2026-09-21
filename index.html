@@ -355,6 +355,8 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
             <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
             <button id="btn-upload-live" class="btn" type="button" style="flex:1;min-width:120px">一键上传到线上</button>
+            <button id="btn-preview-live" class="btn plain" type="button" style="flex:1;min-width:120px">预览活码拨打页</button>
+            <button id="btn-clear-live" class="btn danger" type="button" style="flex:1;min-width:120px">清除活码</button>
           </div>
           <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8">
             <b style="color:var(--brand)">活码使用步骤（订单变更后只需重复第1步）：</b><br>
@@ -393,6 +395,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 <div id="view-viewer" style="display:none">
   <div class="viewer">
     <div class="v-head">
+      <button id="btn-back-mgr" type="button" style="display:none;margin-bottom:8px;padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;cursor:pointer">← 返回管理</button>
       <h1 id="v-title">联系电话</h1>
       <p>点击「拨打」直接拨号，挂断后自动返回本页</p>
     </div>
@@ -3277,13 +3280,16 @@ function genLiveQR(){
 }
 $('btn-live-qr').addEventListener('click', genLiveQR);
 
-$('btn-export-live').addEventListener('click', function(){
+function exportLiveData(){
   var blob = new Blob([liveDataJSON()], {type:'application/json'});
   var a = document.createElement('a');
   a.download = 'live-data.json';
   a.href = URL.createObjectURL(blob);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+$('btn-export-live').addEventListener('click', function(){
+  exportLiveData();
   toast('已导出 live-data.json，请上传到 GitHub 仓库根目录');
 });
 $('btn-copy-live').addEventListener('click', function(){
@@ -3379,6 +3385,40 @@ $('btn-preview').addEventListener('click', function(){
   }
 });
 
+/* ===== 活码预览 / 清除 ===== */
+var livePreviewMode = false;
+function previewLiveViewer(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  livePreviewMode = true;
+  viewerData = null;
+  $('view-editor').style.display = 'none';
+  $('view-viewer').style.display = 'block';
+  var bm = document.getElementById('btn-back-mgr');
+  if(bm) bm.style.display = 'inline-block';
+  if($('v-search')) $('v-search').value = '';
+  renderViewer({t: (state.title||'').trim() || '联系电话', o: state.orders});
+  toast('活码预览：与扫码打开的效果一致');
+}
+function backToManager(){
+  livePreviewMode = false;
+  viewerData = null;
+  $('view-viewer').style.display = 'none';
+  $('view-editor').style.display = 'block';
+  var bm = document.getElementById('btn-back-mgr');
+  if(bm) bm.style.display = 'none';
+}
+function clearLiveQR(){
+  $('qr-stage').classList.remove('show');
+  $('live-actions').style.display = 'none';
+  $('live-hint').style.display = 'none';
+  $('qr-meta').innerHTML = '';
+  toast('活码已清除');
+}
+$('btn-preview-live').addEventListener('click', previewLiveViewer);
+$('btn-clear-live').addEventListener('click', clearLiveQR);
+var btnBackMgr = document.getElementById('btn-back-mgr');
+if(btnBackMgr) btnBackMgr.addEventListener('click', backToManager);
+
 /* ===== 设置同步 ===== */
 $('in-title').value = state.title;
 $('in-base').value = state.baseUrl;
@@ -3438,7 +3478,9 @@ var viewerData = null; /* 活码模式下缓存已加载的数据，供搜索/�
 function renderViewer(preloadedData){
   /* 活码模式：从 live-data.json 异步加载数据 */
   /* 仅当 preloadedData 是有效数据对象时才缓存，防止事件对象等误覆盖 */
-  if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){ viewerData = preloadedData; }
+  if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){
+    if(!livePreviewMode){ viewerData = preloadedData; }
+  }
   if(!preloadedData && /^#live/.test(location.hash)){
     if(viewerData){
       /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
