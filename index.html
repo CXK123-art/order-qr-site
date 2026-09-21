@@ -3582,7 +3582,18 @@ function renderViewer(preloadedData){
     });
   });
 }
-if($('v-search')) $('v-search').addEventListener('input', function(){ renderViewer(); });
+if($('v-search')) $('v-search').addEventListener('input', function(){
+  renderViewer();
+  /* 搜索后自动滚动到结果列表顶部，搜索词保持不清空 */
+  var listEl = $('v-list');
+  if(listEl){
+    try{ listEl.scrollIntoView({block:'start', behavior:'auto'}); }catch(e){}
+  }
+  /* 保持搜索框焦点和内容不变 */
+  this.focus();
+  var pos = this.value.length;
+  try{ this.setSelectionRange(pos, pos); }catch(e){}
+});
 
 /* ===== 初始化 ===== */
 if(isViewer()){
