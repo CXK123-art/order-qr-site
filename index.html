@@ -354,13 +354,20 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
           <div id="live-actions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
             <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
+            <button id="btn-upload-live" class="btn" type="button" style="flex:1;min-width:120px">一键上传到线上</button>
           </div>
           <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8">
-            <b style="color:var(--brand)">活码使用步骤（订单变更后只需重复第1-2步）：</b><br>
-            ① 点「导出活码数据」下载 <b>live-data.json</b>（生成活码时已自动下载）<br>
-            ② 点下方「上传到 GitHub」→ 把下载的文件拖进去 → Commit changes<br>
+            <b style="color:var(--brand)">活码使用步骤（订单变更后只需重复第1步）：</b><br>
+            ① 在下方填入 GitHub Token（首次填写后自动保存）<br>
+            ② 点「一键上传到线上」→ 自动更新线上 <b>live-data.json</b>（无需手动下载拖拽）<br>
             ③ 等待约 30 秒后扫码，即可看到最新订单数据<br>
-            <a href="https://github.com/CXK123-art/order-qr-site/upload/main" target="_blank" style="display:inline-block;margin-top:6px;padding:4px 12px;background:var(--brand);color:#fff;border-radius:6px;text-decoration:none;font-size:12px">上传到 GitHub</a>
+            <div style="margin-top:8px">
+              <input id="gh-token" type="password" placeholder="GitHub Token（ghp_... 或 github_pat_...）" style="width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:ui-monospace,monospace">
+              <div style="margin-top:6px;color:#8A5A0B;line-height:1.6">
+                获取方法：GitHub → Settings → Developer settings → Personal access tokens → 创建 Fine-grained token，仓库权限勾选 Contents 为 Read and write，只给本仓库，填写后点「保存」即可。<br>
+                <b>注意：</b>删除订单后点「一键上传」，线上同步删除该订单。
+              </div>
+            </div>
           </div>
           <div class="warn" id="warn"></div>
           <div class="qr-stage" id="qr-stage">
@@ -3284,6 +3291,63 @@ $('btn-copy-live').addEventListener('click', function(){
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(function(){ toast('活码数据已复制'); }, function(){ fallbackCopy(text); });
   } else fallbackCopy(text);
+});
+
+/* ===== 一键上传活码数据到 GitHub ===== */
+var GH_REPO = 'CXK123-art/order-qr-site';
+var GH_PATH = 'live-data.json';
+var savedToken = null;
+try{ savedToken = localStorage.getItem('oqr_gh_token') || ''; }catch(e){}
+if(savedToken && $('gh-token')) $('gh-token').value = savedToken;
+
+function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
+
+$('btn-upload-live').addEventListener('click', function(){
+  var token = ($('gh-token') ? $('gh-token').value : '').trim();
+  if(!token){
+    toast('请先在下方填写 GitHub Token');
+    $('gh-token').focus();
+    return;
+  }
+  try{ localStorage.setItem('oqr_gh_token', token); }catch(e){}
+  if(!state.orders.length){
+    toast('当前没有订单数据，无法上传');
+    return;
+  }
+  var btn = $('btn-upload-live'), oldText = btn.textContent;
+  btn.disabled = true; btn.textContent = '上传中…';
+  var content = liveDataJSON();
+  var b64 = b64utf8(content);
+
+  /* 先获取线上文件当前 sha，再覆盖更新 */
+  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r){ if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限'); return r.json(); })
+  .then(function(meta){
+    var body = JSON.stringify({
+      message: '更新活码数据（一键上传）',
+      content: b64,
+      sha: meta.sha
+    });
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: body
+    });
+  })
+  .then(function(r){ if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')'); return r.json(); })
+  .then(function(){
+    toast('活码数据已上传成功，约 30 秒后扫码生效');
+  })
+  .catch(function(err){
+    toast('上传失败：' + err.message);
+  })
+  .finally(function(){ btn.disabled = false; btn.textContent = oldText; });
 });
 
 $('btn-download').addEventListener('click', function(){
