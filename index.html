@@ -3173,7 +3173,9 @@ $('btn-clear').addEventListener('click', function(){
 
 /* ===== 数据编解码（存入网址 # 片段） ===== */
 function buildPayload(){
-  return { t: (state.title||'').trim() || '联系电话', o: state.orders.map(function(x){ return {n:x.order, p:x.phone}; }) };
+  /* 活码数据自动过期：生成时间 + 7 天 */
+  var expireAt = Date.now() + 7*24*3600*1000;
+  return { t: (state.title||'').trim() || '联系电话', exp: expireAt, o: state.orders.map(function(x){ return {n:x.order, p:x.phone}; }) };
 }
 function encodeData(obj){
   var json = JSON.stringify(obj);
@@ -3505,6 +3507,15 @@ function renderViewer(preloadedData){
     return;
   }
   $('v-title').textContent = data.t || '联系电话';
+  /* 活码过期检查：生成一周后自动失效，二维码保留但数据不再显示 */
+  if(data.exp && Date.now() > Number(data.exp)){
+    var expD = new Date(Number(data.exp));
+    var expStr = expD.getFullYear() + '-' + (expD.getMonth()+1) + '-' + expD.getDate();
+    $('v-title').textContent = (data.t || '联系电话') + '（已过期）';
+    if($('v-search')) $('v-search').style.display = 'none';
+    $('v-list').innerHTML = '<div class="v-empty" style="padding:40px 20px;line-height:1.8">此活码已于 ' + expStr + ' 自动失效。<br><br>如需继续使用，请联系管理员重新生成活码。</div>';
+    return;
+  }
   var log = getDialLog();
   var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
   /* 保留原始序号，搜索时序号不变 */
@@ -3612,6 +3623,35 @@ if(btnAgree) btnAgree.addEventListener('click', function(){
   var m = document.getElementById('start-modal');
   if(m) m.style.display = 'none';
   $('view-editor').style.display = 'block';
+  /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
+  try{
+    var savedTok = localStorage.getItem('oqr_gh_token') || '';
+    if(!savedTok) return;
+    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.exp) return;
+        if(Date.now() > Number(d.exp)){
+          /* 数据已过期，自动清空线上数据（二维码保留，数据为空） */
+          fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
+          })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(meta){
+            if(!meta || !meta.sha) return;
+            var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
+            return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+              method: 'PUT',
+              headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
+            });
+          })
+          .then(function(){ toast('线上活码数据已过期，已自动清空'); })
+          .catch(function(){});
+        }
+      })
+      .catch(function(){});
+  }catch(e){}
 });
 </script>
 </body>
