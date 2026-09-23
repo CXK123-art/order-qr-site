@@ -440,6 +440,25 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <div style="color:#999;padding:20px;text-align:center">还没有生成过二维码</div>
           </div>
         </div>
+
+        <!-- 云端拨打统计 -->
+        <div class="card">
+          <div class="card-title">云端拨打统计（扫码者上报）</div>
+          <div style="font-size:12px;color:#666;line-height:1.7;margin-bottom:8px">
+            扫码者在拨打页点「拨打」后，记录自动上报到你的 <b>dial-logs</b> 仓库，这里可查看所有扫码者的拨打情况。
+          </div>
+          <input id="cloud-token" type="password" placeholder="dial-logs 仓库 Token（github_pat_...）" style="width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:ui-monospace,monospace;margin-bottom:6px;box-sizing:border-box">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <button id="btn-cloud-save" class="btn plain sm" type="button">保存</button>
+            <button id="btn-cloud-test" class="btn plain sm" type="button">测试连接</button>
+            <button id="btn-cloud-refresh" class="btn sm" type="button">刷新统计</button>
+            <button id="btn-cloud-export" class="btn plain sm" type="button">导出CSV</button>
+          </div>
+          <div id="cloud-summary" style="font-size:12px;color:#333;line-height:1.8;margin-bottom:8px">尚未加载云端记录。</div>
+          <div id="cloud-list" style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px">
+            <div style="color:#999;padding:16px;text-align:center;font-size:12px">点「刷新统计」查看扫码者拨打记录</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3597,8 +3616,18 @@ function liveOrdersFor(cust){
   if(!cust) return state.orders;
   return state.orders.filter(function(x){ return (x.customer||'') === cust; });
 }
+/* 云端上报配置（dial-logs 仓库专用 token） */
+function cloudCfg(){
+  var t = '';
+  try{ t = localStorage.getItem('oqr_dial_token') || ''; }catch(e){}
+  return {t: t, r: 'CXK123-art/dial-logs', f: 'dial-log.json'};
+}
 function liveDataJSON(cust){
-  return JSON.stringify(buildPayload(cust || ''), null, 2);
+  var payload = buildPayload(cust || '');
+  /* 注入云端上报配置：扫码者拨打后自动上报到 dial-logs 仓库 */
+  var cfg = cloudCfg();
+  if(cfg.t) payload._up = cfg;
+  return JSON.stringify(payload, null, 2);
 }
 function genLiveQR(){
   var cust = currentLiveCust();
@@ -4026,6 +4055,107 @@ if(btnHistoryAll) btnHistoryAll.addEventListener('click', function(){
   if(selHistoryCust) selHistoryCust.value = '';
   renderQRHistory();
   toast('显示全部记录');
+});
+
+/* ===== 云端拨打统计 ===== */
+try{ var savedDialTok = localStorage.getItem('oqr_dial_token')||''; if(savedDialTok && $('cloud-token')) $('cloud-token').value = savedDialTok; }catch(e){}
+var cloudData = {logs: []};
+function cloudToken(){ return ($('cloud-token') ? $('cloud-token').value : '').trim(); }
+function cloudAPI(path){
+  var t = cloudToken();
+  if(!t) throw new Error('请先填写 dial-logs Token');
+  return 'https://api.github.com/repos/CXK123-art/dial-logs/contents/' + encodeURIComponent(path);
+}
+function cloudFetch(path, opts){
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  opts.headers['Authorization'] = 'Bearer ' + cloudToken();
+  opts.headers['Accept'] = 'application/vnd.github+json';
+  return fetch(cloudAPI(path), opts);
+}
+$('btn-cloud-save').addEventListener('click', function(){
+  var t = cloudToken();
+  if(!t){ toast('请先粘贴 Token'); return; }
+  try{ localStorage.setItem('oqr_dial_token', t); }catch(e){}
+  toast('Token 已保存');
+});
+$('btn-cloud-test').addEventListener('click', function(){
+  if(!cloudToken()){ toast('请先粘贴 Token'); $('cloud-token').focus(); return; }
+  var btn = $('btn-cloud-test'), old = btn.textContent;
+  btn.disabled = true; btn.textContent = '测试中…';
+  cloudFetch('dial-log.json')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(){ toast('连接成功，dial-logs 仓库可访问'); })
+    .catch(function(e){ toast('连接失败：' + e.message); })
+    .finally(function(){ btn.disabled = false; btn.textContent = old; });
+});
+$('btn-cloud-refresh').addEventListener('click', function(){
+  if(!cloudToken()){ toast('请先粘贴 Token'); $('cloud-token').focus(); return; }
+  var btn = $('btn-cloud-refresh'), old = btn.textContent;
+  btn.disabled = true; btn.textContent = '加载中…';
+  cloudFetch('dial-log.json')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(meta){
+      var logs = [];
+      if(meta && meta.content){
+        try{
+          var raw = decodeURIComponent(escape(atob(String(meta.content).replace(/\s/g,''))));
+          var parsed = JSON.parse(raw);
+          if(parsed && Array.isArray(parsed.logs)) logs = parsed.logs;
+        }catch(e){ logs = []; }
+      }
+      cloudData.logs = logs;
+      renderCloudStats();
+      toast('已加载 ' + logs.length + ' 条拨打记录');
+    })
+    .catch(function(e){ toast('加载失败：' + e.message); })
+    .finally(function(){ btn.disabled = false; btn.textContent = old; });
+});
+function renderCloudStats(){
+  var logs = cloudData.logs;
+  var total = logs.length, today = 0, byCust = {};
+  var now0 = new Date(); now0.setHours(0,0,0,0);
+  logs.forEach(function(r){
+    if(r && r.time >= now0.getTime()) today++;
+    var c = (r && r.cust) || '（未分组）';
+    byCust[c] = (byCust[c]||0) + 1;
+  });
+  var custKeys = Object.keys(byCust);
+  var custStr = custKeys.length ? custKeys.map(function(c){ return esc(c) + ' <b>' + byCust[c] + '</b>次'; }).join(' · ') : '暂无';
+  $('cloud-summary').innerHTML = '总拨打 <b>' + total + '</b> 次 · 今日 <b>' + today + '</b> 次<br>按客户：' + custStr;
+  if(!logs.length){
+    $('cloud-list').innerHTML = '<div style="color:#999;padding:16px;text-align:center;font-size:12px">暂无拨打记录，等扫码者拨打后自动上报</div>';
+    return;
+  }
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<tr style="background:#F2F3F5"><th style="padding:6px;text-align:left">拨打时间</th><th style="padding:6px;text-align:left">订单号</th><th style="padding:6px;text-align:left">手机号</th><th style="padding:6px;text-align:left">客户</th></tr>';
+  logs.slice().reverse().slice(0,100).forEach(function(r){
+    var d = new Date(r.time);
+    var pad2 = function(n){ return ('0'+n).slice(-2); };
+    var ds = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());
+    html += '<tr style="border-top:1px solid #eee"><td style="padding:5px;white-space:nowrap">'+ds+'</td><td style="padding:5px;word-break:break-all">'+esc(r.order||'')+'</td><td style="padding:5px">'+esc(r.phone||'')+'</td><td style="padding:5px">'+esc(r.cust||'')+'</td></tr>';
+  });
+  if(logs.length > 100) html += '<tr><td colspan="4" style="padding:6px;color:#999;text-align:center">仅显示最近 100 条，共 '+logs.length+' 条</td></tr>';
+  html += '</table>';
+  $('cloud-list').innerHTML = html;
+}
+$('btn-cloud-export').addEventListener('click', function(){
+  var logs = cloudData.logs;
+  if(!logs.length){ toast('暂无可导出的记录，先点「刷新统计」'); return; }
+  var rows = [['拨打时间','订单号','手机号','客户']];
+  logs.slice().reverse().forEach(function(r){
+    var d = new Date(r.time);
+    var pad2 = function(n){ return ('0'+n).slice(-2); };
+    var ds = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());
+    rows.push([ds, r.order||'', r.phone||'', r.cust||'']);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '云端拨打记录_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('已导出 ' + logs.length + ' 条拨打记录');
 });
 
 /* 清空线上活码数据（保留二维码文件，只清除数据；支持客户文件） */
