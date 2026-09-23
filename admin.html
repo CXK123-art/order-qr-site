@@ -246,7 +246,7 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
     <div class="stats-panel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
       <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
         <div style="font-size:24px;font-weight:700;color:#2563eb" id="stat-total">0</div>
-        <div style="font-size:12px;color:#888;margin-top:4px">总订单</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">二维码次数</div>
       </div>
       <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
         <div style="font-size:24px;font-weight:700;color:#16a34a" id="stat-called">0</div>
@@ -2817,8 +2817,10 @@ function updateStats(){
   });
   var uncalled = total - called;
   var rate = total ? Math.round(called/total*100) : 0;
+  var qrCount = getQRHistory().length;
   var el;
-  if(el = document.getElementById('stat-total')) el.textContent = total;
+  /* 第一项显示二维码生成次数 */
+  if(el = document.getElementById('stat-total')) el.textContent = qrCount;
   if(el = document.getElementById('stat-called')) el.textContent = called;
   if(el = document.getElementById('stat-uncalled')) el.textContent = uncalled;
   if(el = document.getElementById('stat-rate')) el.textContent = rate + '%';
@@ -3374,10 +3376,16 @@ function renderQRHistory(){
     btn.addEventListener('click', function(){
       var idx = +btn.getAttribute('data-del-history');
       var history = getQRHistory();
+      var rec = history[idx];
       history.splice(idx, 1);
       saveQRHistory(history);
       renderQRHistory();
+      updateStats();
       toast('已删除记录');
+      /* 删除活码记录时，同步清除线上数据（上传到线上的手机号） */
+      if(rec && rec.type === '活码'){
+        clearLiveData();
+      }
     });
   });
   /* 查看历史二维码 */
@@ -3866,6 +3874,29 @@ if(sm) sm.style.display = 'none';
 /* 渲染订单列表和历史记录 */
 renderList();
 renderQRHistory();
+
+/* 清空线上活码数据（保留二维码文件，只清除数据） */
+function clearLiveData(){
+  var savedTok = localStorage.getItem('oqr_gh_token') || '';
+  if(!savedTok){ toast('未配置 GitHub Token，无法清除线上数据'); return; }
+  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+    headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r){ return r.ok ? r.json() : null; })
+  .then(function(meta){
+    if(!meta || !meta.sha) throw new Error('no meta');
+    var emptyData = JSON.stringify({t: '联系电话', exp: Date.now(), o: []});
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '删除历史二维码，同步清除线上数据', content: b64utf8(emptyData), sha: meta.sha })
+    });
+  })
+  .then(function(r){
+    if(r && r.ok){ toast('线上数据已清除（手机号已删除）'); }
+  })
+  .catch(function(){ toast('清除线上数据失败，请检查 Token'); });
+}
 
 /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
 try{
