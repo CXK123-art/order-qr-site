@@ -1,0 +1,3786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>订单电话二维码生成器</title>
+<style>
+:root{
+  --ink:#18232E;
+  --muted:#5B6B7A;
+  --bg:#F4F6F8;
+  --card:#FFFFFF;
+  --brand:#0D6E6E;
+  --brand-deep:#0A5858;
+  --brand-soft:#E6F2F1;
+  --line:#E3E8EE;
+  --danger:#C2483F;
+  --danger-soft:#FBEDEB;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(20,35,50,.05),0 8px 24px rgba(20,35,50,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans SC","Segoe UI",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.6;
+  min-height:100vh;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+
+/* ===== 顶部 ===== */
+.site-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.site-head h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+.site-head h1 .dot{color:var(--brand)}
+.site-head p{color:var(--muted);font-size:14px;margin-top:4px}
+
+/* ===== 卡片 ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.card-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card-title .sub{font-size:12px;color:var(--muted);font-weight:400}
+
+/* ===== 表单 ===== */
+.input{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:14px;font-family:inherit;color:var(--ink);background:#FBFCFD;outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(13,110,110,.12);background:#fff}
+.input::placeholder{color:#9AA8B5}
+.input.mono{font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:140px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:11px 16px;border:none;border-radius:10px;cursor:pointer;
+  font-size:14px;font-weight:600;font-family:inherit;color:#fff;background:var(--brand);
+  transition:background .15s,transform .05s;white-space:nowrap;min-height:44px;
+}
+.btn:hover{background:var(--brand-deep)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--brand);font-weight:500}
+.btn.ghost:hover{background:var(--brand-soft)}
+.btn.plain{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
+.btn.plain:hover{background:var(--bg);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid #E8C4C0;font-weight:500}
+.btn.danger:hover{background:var(--danger-soft)}
+.btn.sm{padding:7px 11px;font-size:13px;border-radius:8px;min-height:34px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn svg{flex:none}
+.hint{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.7}
+.hint b{color:var(--ink);font-weight:600}
+
+/* ===== 列表 ===== */
+.list-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.count{font-size:13px;color:var(--muted);background:var(--bg);border-radius:999px;padding:2px 10px}
+.order-item{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);
+  border-radius:12px;margin-bottom:8px;background:#FCFDFE;flex-wrap:wrap;
+}
+.order-item .order-no{font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;font-size:14px;font-weight:600;color:var(--ink);flex:1;min-width:150px;word-break:break-all}
+.order-item .order-no .tag{display:block;font-size:12px;color:var(--muted);font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.order-item .phone{font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:15px;font-weight:600;color:var(--brand);text-decoration:none;padding:4px 10px;border-radius:8px;background:var(--brand-soft);min-height:32px;display:inline-flex;align-items:center}
+.order-item .phone:hover{background:#D8ECE9}
+.order-item .ops{display:flex;gap:6px}
+.search-box{position:relative;margin-bottom:12px}
+.search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9AA8B5;pointer-events:none}
+.search-box .input{padding-left:38px}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 10px;border:1px dashed var(--line);border-radius:12px}
+textarea.input{resize:vertical;min-height:86px;line-height:1.7}
+.batch-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+/* ===== 表格智能导入预览 ===== */
+.tp-info{font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.6}
+.tp-info b{color:var(--ink)}
+.tp-table{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.tp-table th{background:#F2F3F5;padding:7px 8px;text-align:left;border:1px solid #E0E4E8;font-weight:600;color:#333;white-space:nowrap;cursor:pointer;user-select:none;position:relative}
+.tp-table th:hover{background:#E8EAED}
+.tp-table th .tp-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:700;vertical-align:middle}
+.tp-badge.order{background:#E3F2FD;color:#1565C0}
+.tp-badge.phone{background:#E8F5E9;color:#2E7D32}
+.tp-badge.ignore{background:#F5F5F5;color:#999}
+.tp-table td{padding:6px 8px;border:1px solid #ECEFF1;font-family:ui-monospace,"SF Mono",Consolas,monospace;color:#444;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-table tr:nth-child(even) td{background:#FAFBFC}
+.tp-table td.col-phone{color:#2E7D32;font-weight:600}
+.tp-table td.col-order{color:#1565C0;font-weight:600}
+.tp-table td.col-ignore{color:#BBB}
+.tp-more{font-size:12px;color:var(--muted);text-align:center;padding:4px}
+/* ===== 拖拽导入 ===== */
+.table-drop-zone{position:relative;transition:all .2s}
+.table-drop-zone.drag-over{outline:3px dashed var(--brand);outline-offset:4px;background:#F0F9F8;border-radius:8px}
+.table-drop-hint{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.table-drop-hint .drop-icon{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--bg);border:1px solid var(--line);border-radius:6px;font-size:11px;color:#555;cursor:pointer;transition:background .15s}
+.table-drop-hint .drop-icon:hover{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-deep)}
+.table-drop-hint .drop-icon input{display:none}
+.field-label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px}
+.field-label b{color:var(--brand);font-weight:600}
+
+/* ===== 二维码区 ===== */
+.qr-stage{
+  display:none;flex-direction:column;align-items:center;gap:14px;margin-top:6px;
+  animation:pop .25s ease;
+}
+.qr-stage.show{display:flex}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+.qr-canvas-box{
+  padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff;
+  box-shadow:0 0 0 6px var(--brand-soft);
+}
+.qr-canvas-box canvas{display:block;width:min(260px,72vw);height:auto}
+.qr-meta{font-size:12px;color:var(--muted);text-align:center}
+.qr-meta b{color:var(--brand)}
+.qr-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.warn{
+  font-size:12.5px;color:#8A5A0B;background:#FBF3E2;border:1px solid #EFDFB8;
+  border-radius:10px;padding:9px 12px;line-height:1.7;margin-top:12px;display:none;
+}
+.warn.show{display:block}
+
+/* ===== Toast ===== */
+#toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;font-size:13.5px;padding:11px 18px;border-radius:999px;
+  opacity:0;pointer-events:none;transition:all .25s ease;z-index:99;max-width:88vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== 查看器（拨打页） ===== */
+.viewer{max-width:680px;margin:0 auto;padding:20px 12px 56px}
+.viewer .v-head{text-align:center;margin-bottom:18px}
+.viewer .v-head h1{font-size:20px;font-weight:700}
+.viewer .v-head p{color:var(--muted);font-size:12px;margin-top:4px}
+.v-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid #D8DEE4;box-shadow:var(--shadow)}
+.v-table thead th{background:#F2F3F5;color:#333;font-size:13px;font-weight:700;text-align:center;padding:10px 8px;border:1px solid #D8DEE4;letter-spacing:.3px;white-space:nowrap}
+.v-table thead th.th-left{text-align:left}
+.v-table tbody td{padding:10px 8px;border:1px solid #E4E8EC;vertical-align:middle;text-align:center;font-size:14px}
+.v-table tbody tr:nth-child(even){background:#FAFBFC}
+.td-idx{width:44px;font-weight:600;color:#555;font-size:14px}
+.td-order{text-align:left;font-size:13.5px;font-weight:600;color:var(--ink);word-break:break-all;line-height:1.4;min-width:100px}
+.td-phone{text-align:left;white-space:nowrap}
+.td-phone a{color:var(--ink);font-size:14px;font-weight:600;text-decoration:none;font-family:ui-monospace,"SF Mono",Consolas,monospace;border-bottom:1.5px dashed #C4D4D4;padding-bottom:1px}
+.td-phone a:hover{color:var(--brand)}
+.td-act{width:88px;white-space:nowrap}
+.td-duration{width:72px;font-size:13px;font-weight:600;color:#2E9E5A;line-height:1.4;white-space:nowrap}
+.td-duration.empty{color:#B0B8C0;font-weight:400}
+.dial{
+  display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;border:none;border-radius:6px;
+  background:var(--brand);color:#fff;font-size:14px;font-weight:700;font-family:inherit;
+  text-decoration:none;cursor:pointer;box-shadow:0 2px 6px rgba(13,110,110,.2);
+  transition:background .15s,transform .05s;letter-spacing:1px;min-width:68px;
+}
+.dial:hover{background:var(--brand-deep)}
+.dial:active{transform:scale(.97)}
+.dial.called{background:#D93025;box-shadow:0 2px 6px rgba(217,48,37,.25)}
+.dial.called:hover{background:#B8261E}
+.dial .sub{display:block;font-size:10.5px;font-weight:600;opacity:.95;letter-spacing:0;line-height:1.4}
+.v-foot{text-align:center;color:#9AA8B5;font-size:12px;margin-top:22px}
+.v-empty{text-align:center;color:var(--muted);font-size:14px;padding:30px 10px;border:1px dashed var(--line);border-radius:12px;background:var(--card)}
+
+/* ===== 响应式 ===== */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:18px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:1fr}}
+@media (max-width:520px){
+  .wrap{padding:20px 14px 56px}
+  .site-head h1{font-size:22px}
+  .order-item{padding:11px 12px}
+  .btn.sm{min-height:44px}
+  .order-item .phone{padding:10px 14px;min-height:44px}
+  .batch-grid{grid-template-columns:1fr}
+  .dial{width:100%;justify-content:center}
+  .v-table{font-size:12px}
+  .v-table thead th{padding:8px 4px;font-size:11.5px}
+  .v-table tbody td{padding:8px 4px;font-size:12.5px}
+  .td-idx{width:32px;font-size:12px}
+  .td-order{font-size:12px;min-width:70px}
+  .td-phone a{font-size:12px}
+  .td-act{width:64px}
+  .td-act .dial{min-width:0;padding:7px 8px;font-size:12px}
+  .td-duration{width:56px;font-size:11.5px}
+  .input{font-size:16px}
+  textarea.input{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<!-- 启动确认弹窗：功能介绍 + 违规告知，点击确认后方可进入主网页 -->
+<div id="start-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(12,20,28,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;width:100%;max-width:640px;padding:26px 30px;border-radius:14px;max-height:86vh;overflow-y:auto;box-sizing:border-box;">
+    <div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:22px;font-weight:700;color:#14202B;">订单电话二维码生成器</div>
+      <div style="font-size:13px;color:#7a8a99;margin-top:4px;">工具使用须知</div>
+    </div>
+
+    <div style="font-size:15px;line-height:1.8;color:#333;">
+      <div style="font-weight:700;color:#14202B;margin-bottom:4px;">📋 功能介绍</div>
+      <div style="margin-bottom:12px;">
+        本工具用于：录入<b>订单号与联系号码</b>，批量生成可拨号的<b>静态压缩二维码</b>与<b>活码</b>；支持批量导入/导出数据，活码模式下更新数据无需重新生成二维码。数据默认保存在浏览器本地，活码模式需配套数据文件提供内容。
+      </div>
+
+      <div style="font-weight:700;color:#c0392b;margin-bottom:4px;">⚠️ 违规使用告知</div>
+      <div>
+        1. 本工具仅可用于本人合法、合规的业务场景；<br>
+        2. 严禁用于骚扰电话、电信诈骗、批量外呼骚扰、隐私窃取等任何违法违规行为；<br>
+        3. 使用者对所录入的全部号码与订单数据承担全部法律责任；<br>
+        4. 禁止采集、存储、传播未获授权的他人个人信息；<br>
+        5. 若用于任何非法用途，一切法律后果由使用者自行承担。
+      </div>
+    </div>
+
+    <div style="margin-top:22px;text-align:center;">
+      <button id="btn-agree" type="button" style="padding:12px 34px;font-size:16px;font-weight:600;background:#2b78e4;color:#fff;border:none;border-radius:8px;cursor:pointer;">我已阅读并确认，进入工具</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<!-- ===== 视图：编辑器（管理订单） ===== -->
+<div id="view-editor">
+  <div class="wrap">
+    <header class="site-head">
+      <div>
+        <h1>订单电话二维码<span class="dot">生成器</span></h1>
+        <p>录入订单与手机号，一键生成可拨号的二维码。扫码打开页面，点击号码直接唤起拨号。</p>
+      </div>
+    </header>
+
+    <!-- 数据统计面板 -->
+    <div class="stats-panel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#2563eb" id="stat-total">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">总订单</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#16a34a" id="stat-called">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">已拨打</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#f59e0b" id="stat-uncalled">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">未拨打</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#7c3aed" id="stat-rate">0%</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">拨打完成率</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="btn-export-report" class="btn plain" type="button" style="flex:1;min-width:140px">导出拨打报表(Excel)</button>
+      <button id="btn-clear-dial-log" class="btn plain" type="button" style="flex:1;min-width:140px">清空拨打记录</button>
+    </div>
+
+    <div class="grid">
+      <!-- 左栏：录入与设置 -->
+      <div>
+        <div class="card">
+          <div class="card-title">添加订单</div>
+          <div class="row">
+            <div class="grow"><input id="in-order" class="input" placeholder="订单号，如 DD20260911001"></div>
+            <div class="grow"><input id="in-phone" class="input mono" placeholder="手机号/虚拟号，如 13800138000 或 400-123-4567" inputmode="tel"></div>
+            <div class="grow" style="max-width:140px"><input id="in-customer" class="input" placeholder="客户名（选填）"></div>
+            <button id="btn-add" class="btn" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              添加
+            </button>
+          </div>
+          <div class="hint">支持 <b>手机号、400/95 虚拟号、短号、分机号（用逗号或"转"分隔）、国际号</b>，生成拨号链接时自动转换为可拨打格式。客户名用于分组生成活码。</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">批量添加<span class="sub">先批量贴订单号，再批量贴手机号，按行一一配对</span></div>
+          <div class="batch-grid">
+            <div>
+              <label class="field-label">第 1 步 · 批量输入<b>订单号</b>（每行一个）</label>
+              <textarea id="in-orders" class="input mono" placeholder="DD20260911001&#10;DD20260911002&#10;DD20260911003"></textarea>
+            </div>
+            <div>
+              <label class="field-label">第 2 步 · 批量输入<b>手机号</b>（每行一个，与订单号顺序对应）</label>
+              <textarea id="in-phones" class="input mono" placeholder="13800138000&#10;13900139000&#10;13700137000"></textarea>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button id="btn-import" class="btn plain" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+              配对导入
+            </button>
+          </div>
+          <div class="hint">订单号与手机号按<b>行数顺序</b>一一配对生成订单；两栏行数不一致时，按较少的一栏为准。</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">表格智能导入<span class="sub">从Excel复制粘贴，或直接拖拽Excel/CSV文件到此处，自动识别并导入</span></div>
+          <div class="table-drop-zone" id="table-drop-zone">
+            <textarea id="in-table" class="input mono" rows="4" placeholder="从Excel复制表格后直接粘贴到这里，自动识别并导入&#10;或把 .xlsx / .xls / .csv 文件拖拽到此处"></textarea>
+          </div>
+          <div class="table-drop-hint">
+            <span>支持拖拽导入：</span>
+            <label class="drop-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              选择文件
+              <input type="file" id="in-table-file" accept=".xlsx,.xls,.csv,.txt,.tsv">
+            </label>
+            <span>.xlsx / .xls / .csv</span>
+          </div>
+          <div class="row" style="margin-top:10px;gap:8px">
+            <button id="btn-table-parse" class="btn plain" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              解析预览
+            </button>
+            <button id="btn-table-import" class="btn" type="button" disabled>确认导入</button>
+            <button id="btn-table-clear" class="btn plain" type="button">清空</button>
+          </div>
+          <div id="table-preview" style="margin-top:12px"></div>
+          <div class="hint">拖拽文件或粘贴表格后自动识别导入；点击列头可切换列类型（<b>订单号</b>/<b>手机号</b>/<b>忽略</b>）；首行若为表头会自动跳过。</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">拨打页设置</div>
+          <div class="row" style="margin-bottom:10px">
+            <div class="grow">
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px">扫码后页面显示的标题</label>
+              <input id="in-title" class="input" placeholder="联系电话">
+            </div>
+          </div>
+          <div class="row">
+            <div class="grow">
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px">网站部署地址（上线后的网址，二维码指向这里）</label>
+              <input id="in-base" class="input mono" placeholder="https://你的网站地址/">
+            </div>
+          </div>
+          <div class="hint">二维码内容 = 部署地址 + 订单数据。当前以 <b>本地文件</b> 打开时，生成的二维码仅用于本机测试；要让他人扫码可用，请先把本页部署到公网（如 GitHub Pages、Vercel），再填入部署地址重新生成。</div>
+        </div>
+      </div>
+
+      <!-- 右栏：列表与二维码 -->
+      <div>
+        <div class="card">
+          <div class="card-title">
+            <span>订单列表</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span id="count" class="count">0 条</span>
+              <button id="btn-clear" class="btn danger sm" type="button">清空</button>
+            </span>
+          </div>
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="in-search" class="input" placeholder="搜索订单号或手机号">
+          </div>
+          <div id="list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">生成二维码</div>
+          <button id="btn-qr" class="btn" type="button" style="width:100%">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M18 14h2M14 18h2M18 18h2M20 20h-2v-2M16 16v4"/></svg>
+            生成二维码
+          </button>
+          <button id="btn-live-qr" class="btn ghost" type="button" style="width:100%;margin-top:8px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            生成活码（内容可更新）
+          </button>
+          <div id="live-actions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
+            <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
+            <button id="btn-upload-live" class="btn" type="button" style="flex:1;min-width:120px">一键上传到线上</button>
+            <button id="btn-preview-live" class="btn plain" type="button" style="flex:1;min-width:120px">预览活码拨打页</button>
+            <button id="btn-clear-live" class="btn danger" type="button" style="flex:1;min-width:120px">清除活码</button>
+          </div>
+          <div class="hint" id="live-hint" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8">
+            <b style="color:var(--brand)">活码使用步骤（订单变更后只需重复第1步）：</b><br>
+            ① 在下方填入 GitHub Token（首次填写后自动保存）<br>
+            ② 点「一键上传到线上」→ 自动更新线上 <b>live-data.json</b>（无需手动下载拖拽）<br>
+            ③ 等待约 30 秒后扫码，即可看到最新订单数据<br>
+            <div style="margin-top:8px">
+              <input id="gh-token" type="password" placeholder="GitHub Token（ghp_... 或 github_pat_...）" style="width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:ui-monospace,monospace">
+              <div style="margin-top:6px;color:#8A5A0B;line-height:1.6">
+                获取方法：GitHub → Settings → Developer settings → Personal access tokens → 创建 Fine-grained token，仓库权限勾选 Contents 为 Read and write，只给本仓库，填写后点「保存」即可。<br>
+                <b>注意：</b>删除订单后点「一键上传」，线上同步删除该订单。
+              </div>
+            </div>
+          </div>
+          <div class="warn" id="warn"></div>
+          <div class="qr-stage" id="qr-stage">
+            <div class="qr-canvas-box"><canvas id="qr-canvas" width="560" height="560"></canvas></div>
+            <div class="qr-meta" id="qr-meta"></div>
+            <div class="qr-actions">
+              <button id="btn-download" class="btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+                下载图片
+              </button>
+              <button id="btn-copy" class="btn ghost" type="button">复制链接</button>
+              <button id="btn-preview" class="btn plain" type="button">预览拨打页</button>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:12px">二维码会把当前全部订单一起带进页面，扫描者看到订单列表后点击号码即可拨号。订单增删后需<b>重新生成</b>二维码。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 视图：拨打页（扫码打开） ===== -->
+<div id="view-viewer" style="display:none">
+  <div class="viewer">
+    <div class="v-head">
+      <button id="btn-back-mgr" type="button" style="display:none;margin-bottom:8px;padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;cursor:pointer">← 返回管理</button>
+      <h1 id="v-title">联系电话</h1>
+      <p>点击「拨打」直接拨号，挂断后自动返回本页</p>
+    </div>
+    <div class="search-box">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="v-search" class="input" placeholder="输入序号或订单号或手机号搜索...">
+    </div>
+    <div id="v-list"></div>
+    <div class="v-foot">本页由订单电话二维码生成器生成</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script id="qrlib-src">//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+</script>
+<script>
+/* ===== 工具 ===== */
+var $ = function(id){ return document.getElementById(id); };
+function toast(msg){
+  var t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+function svgIcon(path,size){ return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="'+path+'"/></svg>'; }
+
+/* ===== 状态 ===== */
+var LS_KEY = 'oqr_site_v1';
+var state = { title:'联系电话', baseUrl:'', orders:[
+  {order:'示例订单 DD001', phone:'13800138000'},
+  {order:'示例订单 DD002', phone:'13900139000'}
+]};
+try{ var saved = JSON.parse(localStorage.getItem(LS_KEY)); if(saved && Array.isArray(saved.orders)) state = saved; }catch(e){}
+
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ===== 编辑器：列表渲染（支持搜索） ===== */
+function visibleOrders(){
+  var el = $('in-search');
+  var q = (el ? el.value : '').trim().toLowerCase();
+  var arr = state.orders.map(function(o,i){ return {o:o, i:i}; });
+  if(!q) return arr;
+  return arr.filter(function(x){
+    return ((x.o.order||'').toLowerCase().indexOf(q)>=0) || ((x.o.phone||'').toLowerCase().indexOf(q)>=0);
+  });
+}
+function renderList(){
+  var box = $('list'), html = '', vis = visibleOrders();
+  var el = $('in-search');
+  var q = (el ? el.value : '').trim();
+  $('count').textContent = state.orders.length + (vis.length!==state.orders.length ? (' / 匹配 ' + vis.length) : '') + ' 条';
+  /* 更新统计面板 */
+  updateStats();
+  if(!state.orders.length){
+    box.innerHTML = '<div class="empty">还没有订单，先在左侧添加订单或批量导入。</div>';
+    return;
+  }
+  if(!vis.length){
+    box.innerHTML = '<div class="empty">没有匹配「' + esc(q) + '」的订单号或手机号，换个关键词试试。</div>';
+    return;
+  }
+  vis.forEach(function(x){
+    var o = x.o;
+    var cust = o.customer ? '<span class="tag" style="background:#e0e7ff;color:#3730a3;margin-left:6px">'+esc(o.customer)+'</span>' : '';
+    html += '<div class="order-item">' +
+      '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + cust + '</div>' +
+      '<a class="phone" href="tel:' + esc(telHref(o.phone)) + '">' + esc(o.phone) + '</a>' +
+      '<div class="ops"><button class="btn danger sm" type="button" data-del="' + x.i + '">删除</button></div>' +
+    '</div>';
+  });
+  box.innerHTML = html;
+  Array.prototype.forEach.call(box.querySelectorAll('[data-del]'), function(btn){
+    btn.addEventListener('click', function(){
+      state.orders.splice(+btn.getAttribute('data-del'),1); save(); renderList(); toast('已删除');
+    });
+  });
+}
+if($('in-search')) $('in-search').addEventListener('input', renderList);
+
+/* ===== 数据统计面板 ===== */
+function updateStats(){
+  var total = state.orders.length;
+  var log = {};
+  try{ log = JSON.parse(localStorage.getItem('oqr_dial_log_v1')||'{}'); }catch(e){}
+  var called = 0;
+  state.orders.forEach(function(o){
+    var key = (o.order||'') + '|' + (o.phone||'');
+    if(log[key]) called++;
+  });
+  var uncalled = total - called;
+  var rate = total ? Math.round(called/total*100) : 0;
+  var el;
+  if(el = document.getElementById('stat-total')) el.textContent = total;
+  if(el = document.getElementById('stat-called')) el.textContent = called;
+  if(el = document.getElementById('stat-uncalled')) el.textContent = uncalled;
+  if(el = document.getElementById('stat-rate')) el.textContent = rate + '%';
+}
+
+/* 导出拨打报表 CSV */
+$('btn-export-report').addEventListener('click', function(){
+  if(!state.orders.length){ toast('没有订单数据'); return; }
+  var log = {};
+  try{ log = JSON.parse(localStorage.getItem('oqr_dial_log_v1')||'{}'); }catch(e){}
+  var rows = [['序号','订单号','手机号','拨打状态','拨打时间','通话时长']];
+  state.orders.forEach(function(o, i){
+    var key = (o.order||'') + '|' + (o.phone||'');
+    var rec = log[key];
+    var status = rec ? '已拨打' : '未拨打';
+    var time = rec ? new Date((typeof rec==='number'?rec:rec.time)).toLocaleString() : '';
+    var dur = (rec && rec.duration) ? Math.round(rec.duration/1000)+'秒' : '';
+    rows.push([i+1, o.order||'', o.phone||'', status, time, dur]);
+  });
+  var csv = rows.map(function(r){ return r.join(','); }).join('\n');
+  var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '拨打报表_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('报表已导出');
+});
+
+/* 清空拨打记录 */
+$('btn-clear-dial-log').addEventListener('click', function(){
+  if(!confirm('确定清空全部拨打记录？订单数据不会删除。')) return;
+  localStorage.removeItem('oqr_dial_log_v1');
+  toast('拨打记录已清空');
+  renderList();
+});
+
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+/* 号码合法性：允许数字、空格、-、逗号、空串；含汉字/字母则不可录入 */
+function isPhoneAllowInput(phoneStr){
+  var s = (phoneStr==null)?'':String(phoneStr);
+  if(s==='') return true;
+  if(/[a-zA-Z\u4e00-\u9fa5]/.test(s)) return false;
+  return true;
+}
+/* 订单号合法性：允许数字、空格、-、逗号、空串；含汉字/字母则不可录入 */
+function isOrderAllowInput(orderStr){
+  var s = (orderStr==null)?'':String(orderStr);
+  if(s==='') return true;
+  if(/[a-zA-Z\u4e00-\u9fa5]/.test(s)) return false;
+  return true;
+}
+function telHref(phone){
+  var s = String(phone).trim();
+  /* 手机号(11位)-分机号(2-6位) → 英文逗号（拨号协议要求英文逗号） */
+  s = s.replace(/(\d{11})-(\d{2,6})(?!\d)/g, '$1,$2');
+  /* 中文"转"/"分机"/"ext" → 英文逗号（等待约 2 秒后自动拨分机） */
+  s = s.replace(/转|分机|ext\.?/gi, ',');
+  /* 去掉括号、横杠、下划线、点等纯格式字符；保留空格（虚拟号/400号码拨号需要）和拨号有效字符 + * # , ; p w */
+  s = s.replace(/[()（）\-—_·]/g,'');
+  /* 00 开头的国际长途转 + */
+  s = s.replace(/^00(\d)/,'+$1');
+  return s;
+}
+
+/* 拨打页显示用：手机号-分机号、"转"/"分机"/"ext"统一为中文逗号，清理空格，合并连续逗号 */
+function formatPhoneDisplay(phone){
+  var s = String(phone).trim();
+  /* 手机号(11位)-分机号(2-6位) → 中文逗号 */
+  s = s.replace(/(\d{11})-(\d{2,6})(?!\d)/g, '$1，$2');
+  /* "转"/"分机"/"ext" → 中文逗号 */
+  s = s.replace(/转|分机|ext\.?/gi, '，');
+  /* 清理中英文逗号前后空格 */
+  s = s.replace(/\s*[，,]\s*/g, '，');
+  /* 合并连续逗号 */
+  s = s.replace(/[，,]{2,}/g, '，');
+  return s;
+}
+
+/* ===== 编辑器：添加与导入 ===== */
+function addOrder(order, phone, customer){
+  order = (order||'').trim(); phone = (phone||'').trim(); customer = (customer||'').trim();
+  /* 订单号带汉字/字母禁止录入 */
+  if(order && !isOrderAllowInput(order)){ alert('订单号不能包含汉字、英文字母，请检查！'); return false; }
+  if(!phone){ toast('请填写号码'); return false; }
+  /* 带汉字/字母的号码禁止录入 */
+  if(!isPhoneAllowInput(phone)){ alert('电话号码不能包含汉字、英文字母，请检查号码！'); return false; }
+  state.orders.push({order:order||('订单 '+(state.orders.length+1)), phone:phone, customer:customer||''});
+  save(); renderList(); return true;
+}
+$('btn-add').addEventListener('click', function(){
+  var o = $('in-order'), p = $('in-phone'), c = $('in-customer');
+  if(addOrder(o.value, p.value, c.value)){ o.value=''; p.value=''; c.value=''; toast('已添加'); }
+});
+$('in-phone').addEventListener('keydown', function(e){ if(e.key==='Enter') $('btn-add').click(); });
+$('in-order').addEventListener('keydown', function(e){ if(e.key==='Enter') $('btn-add').click(); });
+
+$('btn-import').addEventListener('click', function(){
+  var ordersTxt = $('in-orders').value.trim();
+  var phonesTxt = $('in-phones').value.trim();
+  if(!ordersTxt && !phonesTxt){ toast('请先粘贴订单号和手机号'); return; }
+  var orders = ordersTxt ? ordersTxt.split(/\r?\n/).map(function(l){ return l.trim(); }) : [];
+  var phones = phonesTxt ? phonesTxt.split(/\r?\n/).map(function(l){ return l.trim(); }) : [];
+  if(!orders.length || !phones.length){
+    toast(orders.length ? '手机号栏为空，请粘贴手机号' : '订单号栏为空，请粘贴订单号');
+    return;
+  }
+  var n = Math.min(orders.length, phones.length);
+  var added = 0, blocked = 0;
+  for(var i=0;i<n;i++){
+    var order = (orders[i]||'').trim();
+    var phone = (phones[i]||'').trim();
+    /* 订单号或号码含汉字/字母，该行拦截不导入 */
+    if(order && !isOrderAllowInput(order)){ blocked++; continue; }
+    if(!isPhoneAllowInput(phone)){ blocked++; continue; }
+    state.orders.push({order:order || ('订单 '+(state.orders.length+1)), phone:phone});
+    added++;
+  }
+  save(); renderList(); $('in-orders').value=''; $('in-phones').value='';
+  var msg = '导入 ' + added + ' 条';
+  if(blocked) msg += '，拦截 ' + blocked + ' 条含文字的行';
+  if(orders.length !== phones.length) msg += '（订单号 ' + orders.length + ' 行，手机号 ' + phones.length + ' 行，已按 ' + n + ' 行配对）';
+  toast(msg);
+});
+
+/* ===== 表格智能导入 ===== */
+var tableState = { rows: [], types: [], headerRow: false, colCount: 0 };
+
+function parseTableText(text){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim(); });
+  if(!lines.length) return [];
+  /* 自动识别分隔符：Tab > 逗号 > 分号 > 竖线 */
+  var first = lines[0];
+  var delim = '\t';
+  if(first.indexOf('\t') < 0){
+    if(first.split(',').length > 1) delim = ',';
+    else if(first.split(';').length > 1) delim = ';';
+    else if(first.split('|').length > 1) delim = '|';
+  }
+  return lines.map(function(line){
+    return line.split(delim).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
+  });
+}
+
+function isPhoneCell(s){
+  if(!s) return false;
+  var digits = s.replace(/[^\d]/g,'');
+  if(/^1\d{10}$/.test(digits)) return true; /* 手机号 */
+  if(/^400\d{7}$/.test(digits)) return true; /* 400电话 */
+  if(/^95\d{3,6}$/.test(digits)) return true; /* 95客服号 */
+  if(digits.length >= 7 && digits.length <= 16 && /[\d\-+]/.test(s) && !/[A-Za-z]/.test(s)) return true; /* 一般电话/座机/带分机 */
+  return false;
+}
+
+function detectTableColumns(rows){
+  if(!rows.length) return {types:[], headerRow:false, colCount:0};
+  var colCount = Math.max.apply(null, rows.map(function(r){ return r.length; }));
+  var firstRow = rows[0];
+  /* 判断首行是否为表头 */
+  var headerKw = /订单|单号|order|手机|电话|phone|tel|号码|序号|编号|联系/i;
+  var headerMatches = firstRow.filter(function(c){ return headerKw.test(c); }).length;
+  var headerRow = (headerMatches >= 1 && firstRow.length > 1);
+  var dataRows = headerRow ? rows.slice(1) : rows;
+  var types = [];
+
+  for(var c=0; c<colCount; c++){
+    /* 先看表头名称 */
+    if(headerRow){
+      var h = (firstRow[c]||'').toLowerCase();
+      if(/手机|电话|phone|tel|号码|联系/.test(h)){ types.push('phone'); continue; }
+      if(/订单|单号|order|序号|编号/.test(h)){ types.push('order'); continue; }
+    }
+    /* 再按内容统计 */
+    var phoneScore=0, orderScore=0, total=0;
+    for(var r=0;r<dataRows.length;r++){
+      var cell = dataRows[r][c]||'';
+      if(!cell) continue;
+      total++;
+      if(isPhoneCell(cell)) phoneScore++;
+      else if(cell.length >= 4 && !/^\d{4}[-/]/.test(cell)) orderScore++;
+    }
+    if(total === 0){ types.push('ignore'); continue; }
+    if(phoneScore/total >= 0.5) types.push('phone');
+    else if(orderScore/total >= 0.3) types.push('order');
+    else types.push('ignore');
+  }
+
+  /* 确保至少有一列手机号和一列订单号 */
+  if(types.indexOf('phone') < 0){
+    var best=-1, bestScore=-1;
+    for(c=0;c<colCount;c++){
+      var ps=0,t=0;
+      for(r=0;r<dataRows.length;r++){ var cc=dataRows[r][c]||''; if(cc){t++; if(isPhoneCell(cc))ps++;} }
+      if(t && ps/t > bestScore){ bestScore=ps/t; best=c; }
+    }
+    if(best>=0) types[best]='phone';
+  }
+  if(types.indexOf('order') < 0){
+    for(c=0;c<colCount;c++){
+      if(types[c]==='ignore'){ types[c]='order'; break; }
+    }
+  }
+  return {types:types, headerRow:headerRow, colCount:colCount};
+}
+
+function renderTablePreview(){
+  var box = $('table-preview');
+  if(!tableState.rows.length){ box.innerHTML=''; return; }
+  var rows = tableState.rows, types = tableState.types, colCount = tableState.colCount;
+  var dataRows = tableState.headerRow ? rows.slice(1) : rows;
+  var orderCol = types.indexOf('order'), phoneCol = types.indexOf('phone');
+  var validCount = 0;
+  dataRows.forEach(function(r){
+    if(orderCol>=0 && phoneCol>=0 && r[phoneCol] && r[phoneCol].replace(/[^\d]/g,'').length>=3) validCount++;
+  });
+
+  var html = '<div class="tp-info">共 <b>' + rows.length + '</b> 行' +
+    (tableState.headerRow ? '（含表头，已自动跳过首行）' : '') +
+    '，识别到 <b>' + colCount + '</b> 列；可导入 <b>' + validCount + '</b> 条有效订单。' +
+    (orderCol<0 ? ' <span style="color:#D93025">未识别到订单号列</span>' : '') +
+    (phoneCol<0 ? ' <span style="color:#D93025">未识别到手机号列</span>' : '') +
+    '</div>';
+
+  html += '<div style="overflow-x:auto"><table class="tp-table"><thead><tr>';
+  var headerCells = tableState.headerRow ? rows[0] : [];
+  for(var c=0;c<colCount;c++){
+    var label = headerCells[c] || ('列'+(c+1));
+    var t = types[c]||'ignore';
+    var badgeText = t==='order'?'订单号':t==='phone'?'手机号':'忽略';
+    html += '<th data-col="'+c+'" title="点击切换列类型">'+esc(label)+'<span class="tp-badge '+t+'">'+badgeText+'</span></th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  var previewRows = dataRows.slice(0,5);
+  previewRows.forEach(function(r){
+    html += '<tr>';
+    for(c=0;c<colCount;c++){
+      var cls = 'col-'+(types[c]||'ignore');
+      html += '<td class="'+cls+'">'+esc(r[c]||'')+'</td>';
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if(dataRows.length > 5) html += '<div class="tp-more">… 共 '+dataRows.length+' 行数据，仅预览前 5 行</div>';
+
+  box.innerHTML = html;
+  /* 列头点击切换类型 */
+  Array.prototype.forEach.call(box.querySelectorAll('.tp-table th'), function(th){
+    th.addEventListener('click', function(){
+      var col = +th.getAttribute('data-col');
+      var cur = tableState.types[col];
+      tableState.types[col] = cur==='order' ? 'phone' : cur==='phone' ? 'ignore' : 'order';
+      renderTablePreview();
+      updateTableImportBtn();
+    });
+  });
+}
+
+function updateTableImportBtn(){
+  var btn = $('btn-table-import');
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  var hasData = tableState.rows.length > (tableState.headerRow?1:0);
+  btn.disabled = !(orderCol>=0 && phoneCol>=0 && hasData);
+}
+
+$('btn-table-parse').addEventListener('click', function(){
+  var txt = $('in-table').value.trim();
+  if(!txt){ toast('请先粘贴表格数据'); return; }
+  tableState.rows = parseTableText(txt);
+  if(!tableState.rows.length){ toast('无法解析表格数据'); return; }
+  var det = detectTableColumns(tableState.rows);
+  tableState.types = det.types;
+  tableState.headerRow = det.headerRow;
+  tableState.colCount = det.colCount;
+  renderTablePreview();
+  updateTableImportBtn();
+  toast('解析完成，共 '+tableState.rows.length+' 行');
+});
+
+function doTableImport(){
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  if(orderCol<0 || phoneCol<0){ return {added:0, blocked:0, error:'未识别到订单号或手机号列'}; }
+  var dataRows = tableState.headerRow ? tableState.rows.slice(1) : tableState.rows;
+  var added=0, blocked=0;
+  dataRows.forEach(function(r){
+    var phone = (r[phoneCol]||'').trim();
+    var order = (r[orderCol]||'').trim();
+    /* 订单号或号码含汉字/字母，该行拦截不导入 */
+    if(order && !isOrderAllowInput(order)){ blocked++; return; }
+    if(!isPhoneAllowInput(phone)){ blocked++; return; }
+    state.orders.push({order: order||('订单 '+(state.orders.length+1)), phone:phone});
+    added++;
+  });
+  save(); renderList();
+  $('in-table').value='';
+  $('table-preview').innerHTML='';
+  tableState = {rows:[],types:[],headerRow:false,colCount:0};
+  updateTableImportBtn();
+  return {added:added, blocked:blocked};
+}
+
+$('btn-table-import').addEventListener('click', function(){
+  var r = doTableImport();
+  if(r.error){ toast(r.error); return; }
+  toast('导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
+});
+
+/* 粘贴表格后自动识别并导入 */
+var tablePasteTimer = null;
+$('in-table').addEventListener('paste', function(){
+  if(tablePasteTimer) clearTimeout(tablePasteTimer);
+  tablePasteTimer = setTimeout(function(){
+    var txt = $('in-table').value.trim();
+    if(!txt) return;
+    var rows = parseTableText(txt);
+    if(!rows.length || rows.length < 1){ toast('无法解析表格数据'); return; }
+    /* 只有多行且多列才自动导入，单行输入不触发 */
+    if(rows.length < 2 || rows[0].length < 2){ return; }
+    tableState.rows = rows;
+    var det = detectTableColumns(rows);
+    tableState.types = det.types;
+    tableState.headerRow = det.headerRow;
+    tableState.colCount = det.colCount;
+    renderTablePreview();
+    updateTableImportBtn();
+    var orderCol = tableState.types.indexOf('order');
+    var phoneCol = tableState.types.indexOf('phone');
+    if(orderCol>=0 && phoneCol>=0){
+      var r = doTableImport();
+      if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
+      toast('自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
+    } else {
+      toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
+    }
+  }, 400);
+});
+
+/* ===== 拖拽文件 / 选择文件导入 ===== */
+function importTableRows(rows, sourceName){
+  if(!rows || !rows.length){ toast('文件中没有数据'); return; }
+  tableState.rows = rows;
+  var det = detectTableColumns(rows);
+  tableState.types = det.types;
+  tableState.headerRow = det.headerRow;
+  tableState.colCount = det.colCount;
+  renderTablePreview();
+  updateTableImportBtn();
+  var orderCol = tableState.types.indexOf('order');
+  var phoneCol = tableState.types.indexOf('phone');
+  if(orderCol>=0 && phoneCol>=0){
+    var r = doTableImport();
+    if(r.error){ toast('自动识别失败，请手动指定列类型后导入'); return; }
+    toast((sourceName? sourceName+'：':'')+'自动识别并导入 '+r.added+' 条'+(r.blocked?'，拦截 '+r.blocked+' 条含文字的行':''));
+  } else {
+    toast('已解析 '+rows.length+' 行，请确认列类型后点「确认导入」');
+  }
+}
+
+function handleTableFile(file){
+  if(!file) return;
+  var name = file.name.toLowerCase();
+  var isExcel = /\.(xlsx|xls)$/.test(name);
+  var isText = /\.(csv|txt|tsv)$/.test(name);
+  if(!isExcel && !isText){ toast('不支持的文件格式，请使用 .xlsx / .xls / .csv'); return; }
+
+  if(isText){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var text = e.target.result;
+      var rows = parseTableText(text);
+      importTableRows(rows, file.name);
+    };
+    reader.onerror = function(){ toast('文件读取失败'); };
+    reader.readAsText(file, 'UTF-8');
+    return;
+  }
+
+  /* Excel 文件用 SheetJS 解析 */
+  if(typeof XLSX === 'undefined'){ toast('Excel解析库加载中，请稍后重试'); return; }
+  var reader2 = new FileReader();
+  reader2.onload = function(e){
+    try{
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array'});
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      /* 过滤全空行 */
+      rows = rows.filter(function(r){ return r && r.some(function(c){ return String(c||'').trim(); }); });
+      /* 数字转字符串 */
+      rows = rows.map(function(r){ return r.map(function(c){ return String(c==null?'':c).trim(); }); });
+      importTableRows(rows, file.name);
+    }catch(err){
+      toast('Excel解析失败：'+err.message);
+    }
+  };
+  reader2.onerror = function(){ toast('文件读取失败'); };
+  reader2.readAsArrayBuffer(file);
+}
+
+/* 拖拽事件 */
+var dropZone = $('table-drop-zone');
+if(dropZone){
+  dropZone.addEventListener('dragover', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+  });
+  dropZone.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+    var files = e.dataTransfer.files;
+    if(files && files.length){ handleTableFile(files[0]); }
+  });
+}
+
+/* 选择文件按钮 */
+if($('in-table-file')){
+  $('in-table-file').addEventListener('change', function(e){
+    if(e.target.files && e.target.files.length){
+      handleTableFile(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+}
+
+$('btn-table-clear').addEventListener('click', function(){
+  $('in-table').value='';
+  $('table-preview').innerHTML='';
+  tableState = {rows:[],types:[],headerRow:false,colCount:0};
+  updateTableImportBtn();
+});
+
+$('btn-clear').addEventListener('click', function(){
+  if(!state.orders.length){ toast('列表已是空的'); return; }
+  if(confirm('确定清空全部 ' + state.orders.length + ' 条订单？')){ state.orders = []; save(); renderList(); toast('已清空'); }
+});
+
+/* ===== 数据编解码（存入网址 # 片段） ===== */
+function buildPayload(customerName){
+  /* 活码数据自动过期：生成时间 + 7 天 */
+  var expireAt = Date.now() + 7*24*3600*1000;
+  var orders = state.orders;
+  /* 按客户过滤：如果指定了客户名，只返回该客户的订单 */
+  if(customerName){
+    orders = orders.filter(function(x){ return (x.customer||'') === customerName; });
+  }
+  var title = customerName ? (customerName + ' - 联系电话') : ((state.title||'').trim() || '联系电话');
+  return { t: title, exp: expireAt, o: orders.map(function(x){ return {n:x.order, p:x.phone}; }) };
+}
+function encodeData(obj){
+  var json = JSON.stringify(obj);
+  /* LZ-string 压缩后转 URL 安全 base64，前缀 z: 标记压缩格式 */
+  var compressed = (typeof LZString !== 'undefined') ? LZString.compressToBase64(json) : null;
+  if(compressed){
+    var b64 = compressed.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    return {b64: 'z:' + b64, len: json.length, compressedLen: b64.length + 2};
+  }
+  /* 降级：未压缩 base64（旧格式） */
+  var b64old = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return {b64: b64old, len: json.length, compressedLen: b64old.length};
+}
+function decodeData(s){
+  try{
+    if(s.indexOf('z:') === 0 && typeof LZString !== 'undefined'){
+      /* 新格式：LZ-string 压缩 */
+      var b64 = s.slice(2).replace(/-/g,'+').replace(/_/g,'/');
+      while(b64.length%4) b64 += '=';
+      var json = LZString.decompressFromBase64(b64);
+      if(json) return JSON.parse(json);
+      return null;
+    }
+    /* 旧格式：未压缩 base64（向后兼容旧二维码） */
+    var b64old = s.replace(/-/g,'+').replace(/_/g,'/');
+    while(b64old.length%4) b64old += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(b64old))));
+  }catch(e){ return null; }
+}
+function baseUrl(){
+  var b = (state.baseUrl||'').trim().replace(/\/+$/,'');
+  if(b) return b;
+  var h = location.href.split('#')[0];
+  return h.replace(/\/+$/,'');
+}
+function dialUrl(){
+  var enc = encodeData(buildPayload());
+  return baseUrl() + '#d=' + enc.b64;
+}
+function isLocalFile(){ return /^file:/.test(location.protocol); }
+
+/* ===== 二维码生成 ===== */
+function drawQR(qr){
+  var canvas = $('qr-canvas'), ctx = canvas.getContext('2d');
+  var modules = qr.getModuleCount(), quiet = 4;
+  var size = canvas.width, cell = size / (modules + quiet*2);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,size,size);
+  ctx.fillStyle = '#14202B';
+  for(var r=0;r<modules;r++) for(var c=0;c<modules;c++)
+    if(qr.isDark(r,c)) ctx.fillRect(Math.round((c+quiet)*cell), Math.round((r+quiet)*cell), Math.ceil(cell)+1, Math.ceil(cell)+1);
+}
+function genQR(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  var enc = encodeData(buildPayload());
+  var url = dialUrl();
+  var warn = $('warn'), meta = $('qr-meta');
+  warn.classList.remove('show');
+  var compLen = enc.compressedLen || enc.b64.length;
+  /* 二维码物理上限：版本40 + L级纠错 + 字节模式 ≈ 2950 字符；超过则无法生成 */
+  if(compLen > 2600){
+    warn.innerHTML = '压缩后数据约 <b>' + compLen + '</b> 字符（原始 ' + enc.len + ' 字符），已接近二维码物理上限（约 2950 字符）。二维码过密会难以扫描，建议减少订单数或缩短订单号。如需更多订单，可分批生成多个二维码。';
+    warn.classList.add('show');
+  }
+  if(compLen > 20000){
+    toast('数据过长（压缩后 ' + compLen + ' 字符），无法生成二维码，请减少订单数');
+    return;
+  }
+  try{
+    var qr = qrcode(0,'L');
+    qr.addData(url);
+    qr.make();
+    drawQR(qr);
+    var tip = '共 ' + state.orders.length + ' 个订单，原始 ' + enc.len + ' 字符，压缩后 ' + compLen + ' 字符';
+    if(isLocalFile() && !(state.baseUrl||'').trim()){
+      tip += ' · 本地文件模式，仅可本机测试';
+    }
+    meta.textContent = tip;
+    $('qr-stage').classList.add('show');
+  }catch(e){
+    toast('数据过长，超出二维码物理上限（约2950字符），请减少订单数或分批生成');
+  }
+}
+$('btn-qr').addEventListener('click', genQR);
+
+/* ===== 活码：固定链接 + 外部数据文件 ===== */
+function liveDataJSON(){ return JSON.stringify(buildPayload(), null, 2); }
+function genLiveQR(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  var url = baseUrl() + '#live';
+  try{
+    var qr = qrcode(0,'M');
+    qr.addData(url);
+    qr.make();
+    drawQR(qr);
+    $('qr-meta').innerHTML = '<b>活码</b>（链接固定不变）· 当前管理页共 ' + state.orders.length + ' 个订单 · 上传数据文件后扫码显示最新订单';
+    $('qr-stage').classList.add('show');
+    $('live-actions').style.display = 'flex';
+    $('live-hint').style.display = 'block';
+    $('warn').classList.remove('show');
+    /* 生成活码时自动导出当前数据文件 */
+    setTimeout(function(){ exportLiveData(); }, 600);
+    toast('活码已生成，live-data.json 已自动下载，请按下方步骤上传');
+  }catch(e){ toast('生成活码失败'); }
+}
+$('btn-live-qr').addEventListener('click', genLiveQR);
+
+function exportLiveData(){
+  var blob = new Blob([liveDataJSON()], {type:'application/json'});
+  var a = document.createElement('a');
+  a.download = 'live-data.json';
+  a.href = URL.createObjectURL(blob);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+$('btn-export-live').addEventListener('click', function(){
+  exportLiveData();
+  toast('已导出 live-data.json，请上传到 GitHub 仓库根目录');
+});
+$('btn-copy-live').addEventListener('click', function(){
+  var text = liveDataJSON();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('活码数据已复制'); }, function(){ fallbackCopy(text); });
+  } else fallbackCopy(text);
+});
+
+/* ===== 一键上传活码数据到 GitHub ===== */
+var GH_REPO = 'CXK123-art/order-qr-site';
+var GH_PATH = 'live-data.json';
+var savedToken = null;
+try{ savedToken = localStorage.getItem('oqr_gh_token') || ''; }catch(e){}
+if(savedToken && $('gh-token')) $('gh-token').value = savedToken;
+
+function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
+
+$('btn-upload-live').addEventListener('click', function(){
+  var token = ($('gh-token') ? $('gh-token').value : '').trim();
+  if(!token){
+    toast('请先在下方填写 GitHub Token');
+    $('gh-token').focus();
+    return;
+  }
+  try{ localStorage.setItem('oqr_gh_token', token); }catch(e){}
+  if(!state.orders.length){
+    toast('当前没有订单数据，无法上传');
+    return;
+  }
+  var btn = $('btn-upload-live'), oldText = btn.textContent;
+  btn.disabled = true; btn.textContent = '上传中…';
+  var content = liveDataJSON();
+  var b64 = b64utf8(content);
+
+  /* 先获取线上文件当前 sha，再覆盖更新 */
+  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r){ if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限'); return r.json(); })
+  .then(function(meta){
+    var body = JSON.stringify({
+      message: '更新活码数据（一键上传）',
+      content: b64,
+      sha: meta.sha
+    });
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: body
+    });
+  })
+  .then(function(r){ if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')'); return r.json(); })
+  .then(function(){
+    toast('活码数据已上传成功，约 30 秒后扫码生效');
+  })
+  .catch(function(err){
+    toast('上传失败：' + err.message);
+  })
+  .finally(function(){ btn.disabled = false; btn.textContent = oldText; });
+});
+
+$('btn-download').addEventListener('click', function(){
+  var a = document.createElement('a');
+  a.download = '订单电话二维码.png';
+  a.href = $('qr-canvas').toDataURL('image/png');
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('已下载二维码图片');
+});
+$('btn-copy').addEventListener('click', function(){
+  var url = dialUrl();
+  function done(){ toast('链接已复制'); }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done, function(){ fallbackCopy(url); }); }
+  else fallbackCopy(url);
+});
+function fallbackCopy(text){
+  var ta = document.createElement('textarea'); ta.value = text;
+  ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta);
+  ta.select(); try{ document.execCommand('copy'); toast('链接已复制'); }catch(e){ toast('复制失败，请手动复制'); }
+  ta.remove();
+}
+$('btn-preview').addEventListener('click', function(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  var url = dialUrl();
+  if(isLocalFile() && !(state.baseUrl||'').trim()){
+    window.open(location.href.split('#')[0] + '#d=' + encodeData(buildPayload()).b64, '_blank');
+  } else {
+    window.open(url, '_blank');
+  }
+});
+
+/* ===== 活码预览 / 清除 ===== */
+var livePreviewMode = false;
+function previewLiveViewer(){
+  if(!state.orders.length){ toast('请先添加订单'); return; }
+  livePreviewMode = true;
+  viewerData = null;
+  $('view-editor').style.display = 'none';
+  $('view-viewer').style.display = 'block';
+  var bm = document.getElementById('btn-back-mgr');
+  if(bm) bm.style.display = 'inline-block';
+  if($('v-search')) $('v-search').value = '';
+  renderViewer({t: (state.title||'').trim() || '联系电话', o: state.orders});
+  toast('活码预览：与扫码打开的效果一致');
+}
+function backToManager(){
+  livePreviewMode = false;
+  viewerData = null;
+  $('view-viewer').style.display = 'none';
+  $('view-editor').style.display = 'block';
+  var bm = document.getElementById('btn-back-mgr');
+  if(bm) bm.style.display = 'none';
+}
+function clearLiveQR(){
+  $('qr-stage').classList.remove('show');
+  $('live-actions').style.display = 'none';
+  $('live-hint').style.display = 'none';
+  $('qr-meta').innerHTML = '';
+  toast('活码已清除');
+}
+$('btn-preview-live').addEventListener('click', previewLiveViewer);
+$('btn-clear-live').addEventListener('click', clearLiveQR);
+var btnBackMgr = document.getElementById('btn-back-mgr');
+if(btnBackMgr) btnBackMgr.addEventListener('click', backToManager);
+
+/* ===== 设置同步 ===== */
+$('in-title').value = state.title;
+$('in-base').value = state.baseUrl;
+$('in-title').addEventListener('input', function(){ state.title = this.value; save(); });
+$('in-base').addEventListener('input', function(){ state.baseUrl = this.value; save(); });
+
+/* ===== 查看器（扫码拨打页） ===== */
+function isViewer(){ return /^#d=/.test(location.hash) || /^#live/.test(location.hash); }
+
+/* 拨打记录：存在本机 localStorage，标记已拨打并记录时间 */
+var DIAL_KEY = 'oqr_dial_log_v1';
+var pendingDial = {}; /* 正在进行的拨打：key -> 开始时间戳 */
+function getDialLog(){ try{ return JSON.parse(localStorage.getItem(DIAL_KEY)) || {}; }catch(e){ return {}; } }
+function dialKey(n, p){ return (n||'') + '|' + (p||''); }
+/* 兼容旧格式：旧记录是数字时间戳，新格式是 {time, duration} */
+function getCallRec(log, key){
+  var v = log[key];
+  if(!v) return null;
+  if(typeof v === 'number') return {time: v, duration: 0};
+  return v;
+}
+function fmtDialTime(ts){
+  var d = new Date(ts), now = new Date();
+  var hm = ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+  if(d.toDateString()===now.toDateString()) return '今天 ' + hm;
+  return ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2) + ' ' + hm;
+}
+function fmtDuration(ms){
+  if(!ms || ms < 0) return '';
+  var sec = Math.floor(ms / 1000);
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return m + '分' + s + '秒';
+}
+/* 页面重新获得焦点时（挂断后返回浏览器），计算通话时长 */
+function settlePendingDial(){
+  var now = Date.now(), changed = false;
+  for(var key in pendingDial){
+    var start = pendingDial[key];
+    var duration = now - start;
+    if(duration > 3000){ /* 大于3秒才记录，过滤误触 */
+      var log = getDialLog();
+      var rec = getCallRec(log, key) || {time: now, duration: 0};
+      rec.duration = duration; rec.time = now;
+      log[key] = rec;
+      try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log)); }catch(e){}
+      changed = true;
+    }
+    delete pendingDial[key];
+  }
+  if(changed && isViewer()) renderViewer();
+}
+window.addEventListener('focus', settlePendingDial);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) settlePendingDial(); });
+
+var viewerData = null; /* 活码模式下缓存已加载的数据，供搜索/重渲染使用 */
+/* 全局错误捕获：防止白屏闪退 */
+window.addEventListener('error', function(e){
+  console.error('页面错误:', e.message);
+  var list = document.getElementById('v-list');
+  if(list && list.innerHTML.indexOf('v-table') >= 0){
+    /* 渲染中出错不覆盖已有表格 */
+    return;
+  }
+  if(list){
+    list.innerHTML = '<div class="v-empty" style="padding:30px 20px">页面加载出错，请刷新重试。<br><br>错误：' + (e.message||'未知') + '</div>';
+  }
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('未处理Promise:', e.reason);
+});
+
+function renderViewer(preloadedData){
+  try{
+    /* 活码模式：从 live-data.json 异步加载数据 */
+    /* 仅当 preloadedData 是有效数据对象时才缓存，防止事件对象等误覆盖 */
+    if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){
+      if(!livePreviewMode){ viewerData = preloadedData; }
+    }
+    if(!preloadedData && /^#live/.test(location.hash)){
+      if(viewerData){
+        /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
+        renderViewer(viewerData);
+        return;
+      }
+      $('v-title').textContent = '加载中…';
+    /* 加时间戳防止浏览器/CDN缓存，确保手机和电脑看到最新数据 */
+    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(d){ viewerData = d; renderViewer(d); })
+      .catch(function(){
+        /* 加载失败时只替换列表区域，保留搜索框和页面结构 */
+        $('v-title').textContent = '数据加载失败';
+        $('v-list').innerHTML = '<div class="v-empty">活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。<br><br>可尝试下拉刷新页面。</div>';
+      });
+    return;
+  }
+  var data = preloadedData || decodeData(location.hash.replace(/^#d=/,''));
+  if(!data || !Array.isArray(data.o) || !data.o.length){
+    document.getElementById('view-viewer').innerHTML = '<div class="viewer"><div class="v-head"><h1>数据无效</h1><p>这个二维码缺少有效订单数据。</p></div></div>';
+    return;
+  }
+  $('v-title').textContent = data.t || '联系电话';
+  /* 活码过期检查：生成一周后自动失效，二维码保留但数据不再显示 */
+  if(data.exp && Date.now() > Number(data.exp)){
+    var expD = new Date(Number(data.exp));
+    var expStr = expD.getFullYear() + '-' + (expD.getMonth()+1) + '-' + expD.getDate();
+    $('v-title').textContent = (data.t || '联系电话') + '（已过期）';
+    if($('v-search')) $('v-search').style.display = 'none';
+    $('v-list').innerHTML = '<div class="v-empty" style="padding:40px 20px;line-height:1.8">此活码已于 ' + expStr + ' 自动失效。<br><br>如需继续使用，请联系管理员重新生成活码。</div>';
+    return;
+  }
+  var log = getDialLog();
+  var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
+  /* 滚动定位模式：始终渲染全部订单，搜索时滚动到第一个匹配行 */
+  var allList = data.o.map(function(item, i){ return {item: item, idx: i+1}; });
+  if(!allList.length){
+    $('v-list').innerHTML = '<div class="v-empty">暂无订单数据</div>';
+    return;
+  }
+  var html = '<table class="v-table"><thead><tr>' +
+    '<th>序号</th><th class="th-left">订单号</th><th class="th-left">电话号码</th><th>操作</th><th>通话时长</th>' +
+    '</tr></thead><tbody id="v-tbody">';
+  allList.forEach(function(x){
+    var item = x.item, idx = x.idx;
+    var phone = String(item.p||'').trim();
+    var key = dialKey(item.n, phone);
+    var rec = getCallRec(log, key);
+    var called = !!rec;
+    var dialBtn = called
+      ? '<span class="sub">已拨打<br>' + esc(fmtDialTime(rec.time)) + '</span>'
+      : '<span>拨打</span>';
+    var hasDur = rec && rec.duration;
+    var durText = hasDur ? fmtDuration(rec.duration) : '—';
+    var hasPhone = !!phone;
+    /* 号码含汉字/字母：标红警告并禁用拨打（兼容历史脏数据） */
+    var invalidPhone = hasPhone && !isPhoneAllowInput(phone);
+    var phoneDisplay, dialDisplay;
+    /* 订单号含文字：标红警告，整行禁用拨打 */
+    var invalidOrder = item.n && !isOrderAllowInput(item.n);
+    var orderDisplay = invalidOrder
+      ? '<span style="color:#D93025;font-weight:600">' + esc(item.n) + '<br><small style="font-weight:400;color:#999">订单号含非法文字</small></span>'
+      : esc(item.n||'未填写');
+    if(invalidOrder || invalidPhone){
+      dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">不可拨打</span>';
+      if(invalidOrder){
+        phoneDisplay = '<span style="color:#999">'+ (hasPhone? esc(phone) : '未填写') +'</span>';
+      } else if(invalidPhone){
+        phoneDisplay = '<span style="color:#D93025;font-weight:600">' + esc(phone) + '<br><small style="font-weight:400;color:#999">号码含非法文字</small></span>';
+      }
+    } else if(hasPhone){
+      phoneDisplay = '<a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a>';
+      dialDisplay = '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a>';
+    } else {
+      phoneDisplay = '<span style="color:#999">未填写</span>';
+      dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">拨打</span>';
+    }
+    /* 给行加搜索用的数据属性 */
+    var rowAttr = 'data-n="' + esc(String(item.n||'')) + '" data-p="' + esc(String(item.p||'')) + '" data-idx="' + idx + '"';
+    html += '<tr ' + rowAttr + '>' +
+      '<td class="td-idx">' + idx + '</td>' +
+      '<td class="td-order">' + orderDisplay + '</td>' +
+      '<td class="td-phone">' + phoneDisplay + '</td>' +
+      '<td class="td-act">' + dialDisplay + '</td>' +
+      '<td class="td-duration' + (hasDur ? '' : ' empty') + '">' + esc(durText) + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  /* 分批渲染：大数据量时分批插入 DOM，避免一次性渲染卡死 */
+  $('v-list').innerHTML = html;
+  /* 事件绑定用事件委托，避免每行单独绑定 */
+  Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
+    a.addEventListener('click', function(){
+      var key = a.getAttribute('data-key');
+      var now = Date.now();
+      pendingDial[key] = now; /* 记录开始时间，挂断返回后计算时长 */
+      var log2 = getDialLog();
+      var rec = getCallRec(log2, key) || {time: now, duration: 0};
+      rec.time = now;
+      log2[key] = rec;
+      try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
+      a.classList.add('called');
+      a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(now)) + '</span>';
+    });
+  });
+  }catch(err){
+    console.error('渲染错误:', err);
+    var listEl = document.getElementById('v-list');
+    if(listEl && listEl.innerHTML.indexOf('v-table') < 0){
+      listEl.innerHTML = '<div class="v-empty" style="padding:30px 20px;line-height:1.8">数据加载失败，请刷新页面重试。<br><br>如多次失败，请联系管理员。</div>';
+    }
+  }
+}
+if($('v-search')) $('v-search').addEventListener('input', function(){
+  var q = this.value.trim().toLowerCase();
+  /* 滚动定位模式：不重建表格，直接查找第一个匹配行并滚动到它 */
+  var rows = document.querySelectorAll('#v-tbody tr');
+  var firstMatch = null;
+  rows.forEach(function(tr){
+    var n = (tr.getAttribute('data-n')||'').toLowerCase();
+    var p = (tr.getAttribute('data-p')||'').toLowerCase();
+    var idx = tr.getAttribute('data-idx')||'';
+    if(!q){
+      tr.style.background = '';
+      return;
+    }
+    var matched = n.indexOf(q)>=0 || p.indexOf(q)>=0 || idx.indexOf(q)>=0;
+    if(matched){
+      tr.style.background = '#fff3cd';
+      if(!firstMatch) firstMatch = tr;
+    } else {
+      tr.style.background = '';
+    }
+  });
+  if(firstMatch){
+    try{ firstMatch.scrollIntoView({block:'center', behavior:'auto'}); }catch(e){}
+  }
+  /* 保持搜索框焦点和内容不变 */
+  this.focus();
+  var pos = this.value.length;
+  try{ this.setSelectionRange(pos, pos); }catch(e){}
+});
+
+/* ===== 初始化 ===== */
+/* 管理端：直接显示管理页，需要密码验证 */
+$('view-viewer').style.display = 'none';
+$('view-editor').style.display = 'none';
+var sm = document.getElementById('start-modal');
+if(sm) sm.style.display = 'none';
+
+/* 直接弹出管理员密码验证 */
+(function(){
+  var savedPwd = localStorage.getItem('oqr_admin_pwd') || 'admin123';
+  var inputPwd = prompt('管理员登录\n\n请输入密码（默认：admin123）：');
+  if(inputPwd === null){
+    /* 取消则显示提示 */
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:16px;color:#666">需要管理员密码才能进入后台</div>';
+    return;
+  }
+  if(inputPwd !== savedPwd){
+    alert('密码错误！');
+    location.reload();
+    return;
+  }
+  $('view-editor').style.display = 'block';
+  /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
+  try{
+    var savedTok = localStorage.getItem('oqr_gh_token') || '';
+    if(!savedTok) return;
+    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.exp) return;
+        if(Date.now() > Number(d.exp)){
+          /* 数据已过期，自动清空线上数据（二维码保留，数据为空） */
+          fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
+          })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(meta){
+            if(!meta || !meta.sha) return;
+            var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
+            return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+              method: 'PUT',
+              headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
+            });
+          })
+          .then(function(){ toast('线上活码数据已过期，已自动清空'); })
+          .catch(function(){});
+        }
+      })
+      .catch(function(){});
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
