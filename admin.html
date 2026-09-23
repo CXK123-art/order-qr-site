@@ -4060,7 +4060,12 @@ if(btnHistoryAll) btnHistoryAll.addEventListener('click', function(){
 /* ===== 云端拨打统计 ===== */
 try{ var savedDialTok = localStorage.getItem('oqr_dial_token')||''; if(savedDialTok && $('cloud-token')) $('cloud-token').value = savedDialTok; }catch(e){}
 var cloudData = {logs: []};
-function cloudToken(){ return ($('cloud-token') ? $('cloud-token').value : '').trim(); }
+function cloudToken(){
+  var v = ($('cloud-token') ? $('cloud-token').value : '') || '';
+  /* 只保留 ASCII 可打印字符：过滤中文/emoji/控制字符，防止 fetch 请求头报错 */
+  v = v.replace(/[^\x20-\x7E]/g, '');
+  return v;
+}
 function cloudAPI(path){
   var t = cloudToken();
   if(!t) throw new Error('请先填写 dial-logs Token');
@@ -4078,8 +4083,7 @@ $('btn-cloud-save').addEventListener('click', function(){
   if(!t){ toast('请先粘贴 Token'); return; }
   try{ localStorage.setItem('oqr_dial_token', t); }catch(e){}
   toast('Token 已保存');
-});
-$('btn-cloud-test').addEventListener('click', function(){
+});$('btn-cloud-test').addEventListener('click', function(){
   if(!cloudToken()){ toast('请先粘贴 Token'); $('cloud-token').focus(); return; }
   var btn = $('btn-cloud-test'), old = btn.textContent;
   btn.disabled = true; btn.textContent = '测试中…';
