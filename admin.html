@@ -423,6 +423,12 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <span>生成历史记录</span>
             <span style="font-size:12px;font-weight:400;color:#888" id="qr-history-count">共 0 条</span>
           </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <select id="sel-history-cust" style="flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;background:#fff">
+              <option value="">全部记录</option>
+            </select>
+            <button id="btn-history-all" class="btn plain sm" type="button" style="white-space:nowrap">显示全部</button>
+          </div>
           <div id="qr-history-list" style="max-height:400px;overflow-y:auto;border:1px solid #eee;border-radius:8px">
             <div style="color:#999;padding:20px;text-align:center">还没有生成过二维码</div>
           </div>
@@ -3362,16 +3368,36 @@ function addQRHistoryRecord(type, orderCount, customerName, url){
   saveQRHistory(history);
   renderQRHistory();
 }
+/* 更新历史记录客户筛选下拉 */
+function updateHistoryCustOptions(){
+  var sel = document.getElementById('sel-history-cust');
+  if(!sel) return;
+  var history = getQRHistory();
+  var customers = [];
+  history.forEach(function(r){ if(r.customer) customers.push(r.customer); });
+  customers = customers.filter(function(v,i,a){ return a.indexOf(v) === i; });
+  var cur = sel.value;
+  var html = '<option value="">全部记录</option>';
+  customers.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
+  sel.innerHTML = html;
+  if(cur && customers.indexOf(cur) >= 0) sel.value = cur;
+}
 function renderQRHistory(){
   var box = $('qr-history-list');
   if(!box) return;
-  var history = getQRHistory();
+  updateHistoryCustOptions();
+  var all = getQRHistory();
+  /* 客户筛选 */
+  var custSel = document.getElementById('sel-history-cust');
+  var filterCust = (custSel && custSel.value) ? custSel.value : '';
+  var history = filterCust ? all.filter(function(r){ return (r.customer||'') === filterCust; }) : all.slice();
   if(!history.length){
-    box.innerHTML = '<div style="color:#999;padding:20px;text-align:center">还没有生成过二维码</div>';
+    box.innerHTML = '<div style="color:#999;padding:20px;text-align:center">' + (filterCust ? '该客户还没有生成过二维码' : '还没有生成过二维码') + '</div>';
     return;
   }
   var html = '';
-  history.forEach(function(rec, i){
+  history.forEach(function(rec){
+    var ridx = all.indexOf(rec);
     var d = new Date(rec.time);
     var dateStr = d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
     var timeStr = ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2);
@@ -3383,8 +3409,8 @@ function renderQRHistory(){
         '<div style="font-size:12px;color:#666;margin-top:2px">'+dateStr+' '+timeStr+' · '+rec.orderCount+' 个订单</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px">' +
-        '<button class="btn plain sm" type="button" data-view-history="'+i+'" style="padding:4px 10px;font-size:12px">查看二维码</button>' +
-        '<button class="btn plain sm" type="button" data-del-history="'+i+'" style="padding:4px 10px;font-size:12px">删除</button>' +
+        '<button class="btn plain sm" type="button" data-view-history="'+ridx+'" style="padding:4px 10px;font-size:12px">查看二维码</button>' +
+        '<button class="btn plain sm" type="button" data-del-history="'+ridx+'" style="padding:4px 10px;font-size:12px">删除</button>' +
       '</div>' +
     '</div>';
   });
@@ -3970,6 +3996,19 @@ if(sm) sm.style.display = 'none';
 /* 渲染订单列表和历史记录 */
 renderList();
 renderQRHistory();
+/* 历史记录客户筛选事件 */
+var selHistoryCust = document.getElementById('sel-history-cust');
+if(selHistoryCust) selHistoryCust.addEventListener('change', function(){
+  renderQRHistory();
+  var c = selHistoryCust.value;
+  toast(c ? ('已筛选：客户「' + c + '」的二维码记录') : '显示全部记录');
+});
+var btnHistoryAll = document.getElementById('btn-history-all');
+if(btnHistoryAll) btnHistoryAll.addEventListener('click', function(){
+  if(selHistoryCust) selHistoryCust.value = '';
+  renderQRHistory();
+  toast('显示全部记录');
+});
 
 /* 清空线上活码数据（保留二维码文件，只清除数据；支持客户文件） */
 function clearLiveData(cust){
