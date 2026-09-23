@@ -375,6 +375,12 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             生成活码（内容可更新）
           </button>
+          <div style="margin-top:8px">
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">活码客户分组（选某客户则只生成该客户的活码）</label>
+            <select id="sel-live-cust" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff">
+              <option value="">全部客户</option>
+            </select>
+          </div>
           <div id="live-actions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
             <button id="btn-export-live" class="btn plain" type="button" style="flex:1;min-width:120px">导出活码数据</button>
             <button id="btn-copy-live" class="btn plain" type="button" style="flex:1;min-width:120px">复制活码数据</button>
@@ -2773,6 +2779,8 @@ function visibleOrders(){
   });
 }
 function renderList(){
+  /* 同步更新活码客户下拉选项 */
+  updateLiveCustOptions();
   var box = $('list'), html = '', vis = visibleOrders();
   var el = $('in-search');
   var q = (el ? el.value : '').trim();
@@ -3384,7 +3392,7 @@ function renderQRHistory(){
       toast('已删除记录');
       /* 删除活码记录时，同步清除线上数据（上传到线上的手机号） */
       if(rec && rec.type === '活码'){
-        clearLiveData();
+        clearLiveData(rec.customer || '');
       }
     });
   });
@@ -3479,52 +3487,93 @@ function genQR(){
 }
 $('btn-qr').addEventListener('click', genQR);
 
-/* ===== 活码：固定链接 + 外部数据文件 ===== */
-function liveDataJSON(){ return JSON.stringify(buildPayload(), null, 2); }
+/* ===== 活码：固定链接 + 外部数据文件（支持客户分组） ===== */
+/* 客户下拉选项：从订单中收集去重 */
+function updateLiveCustOptions(){
+  var sel = document.getElementById('sel-live-cust');
+  if(!sel) return;
+  var customers = [];
+  state.orders.forEach(function(o){ if(o.customer) customers.push(o.customer); });
+  customers = customers.filter(function(v,i,a){ return a.indexOf(v) === i; });
+  var cur = sel.value;
+  var html = '<option value="">全部客户</option>';
+  customers.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
+  sel.innerHTML = html;
+  if(cur && customers.indexOf(cur) >= 0) sel.value = cur;
+}
+/* 文件名安全化：去掉特殊字符 */
+function safeFileName(s){
+  return String(s||'').replace(/[\\/:*?"<>|\s]+/g,'').replace(/^\.+/,'');
+}
+/* 当前选中的活码客户 */
+function currentLiveCust(){
+  var sel = document.getElementById('sel-live-cust');
+  return (sel && sel.value) ? sel.value : '';
+}
+/* 活码对应的数据文件名 */
+function liveFileFor(cust){
+  return cust ? ('live-' + safeFileName(cust) + '.json') : 'live-data.json';
+}
+/* 活码二维码链接 hash */
+function liveHashFor(cust){
+  return cust ? ('#live-c=' + encodeURIComponent(cust)) : '#live';
+}
+/* 当前活码客户下的订单 */
+function liveOrdersFor(cust){
+  if(!cust) return state.orders;
+  return state.orders.filter(function(x){ return (x.customer||'') === cust; });
+}
+function liveDataJSON(cust){
+  return JSON.stringify(buildPayload(cust || ''), null, 2);
+}
 function genLiveQR(){
-  if(!state.orders.length){ toast('请先添加订单'); return; }
-  var url = baseUrl() + '#live';
+  var cust = currentLiveCust();
+  var orders = liveOrdersFor(cust);
+  if(!orders.length){ toast(cust ? ('客户「' + cust + '」还没有订单') : '请先添加订单'); return; }
+  var url = baseUrl() + liveHashFor(cust);
   try{
     var qr = qrcode(0,'M');
     qr.addData(url);
     qr.make();
     drawQR(qr);
-    $('qr-meta').innerHTML = '<b>活码</b>（链接固定不变）· 当前管理页共 ' + state.orders.length + ' 个订单 · 上传数据文件后扫码显示最新订单';
+    $('qr-meta').innerHTML = '<b>活码</b>' + (cust ? '（客户：' + esc(cust) + '）' : '（全部客户）') + '（链接固定不变）· ' + orders.length + ' 个订单 · 上传数据文件后扫码显示最新订单';
     $('qr-stage').classList.add('show');
     $('live-actions').style.display = 'flex';
     $('live-hint').style.display = 'block';
     $('warn').classList.remove('show');
     /* 生成活码时自动导出当前数据文件 */
-    setTimeout(function(){ exportLiveData(); }, 600);
-    toast('活码已生成，live-data.json 已自动下载，请按下方步骤上传');
+    setTimeout(function(){ exportLiveData(cust); }, 600);
+    toast('活码已生成，' + liveFileFor(cust) + ' 已自动下载，请按下方步骤上传');
     /* 记录生成历史 */
-    addQRHistoryRecord('活码', state.orders.length, '', url);
+    addQRHistoryRecord('活码', orders.length, cust, url);
   }catch(e){ toast('生成活码失败'); }
 }
 $('btn-live-qr').addEventListener('click', genLiveQR);
 
-function exportLiveData(){
-  var blob = new Blob([liveDataJSON()], {type:'application/json'});
+function exportLiveData(cust){
+  cust = cust === undefined ? currentLiveCust() : cust;
+  var name = liveFileFor(cust);
+  var blob = new Blob([liveDataJSON(cust)], {type:'application/json'});
   var a = document.createElement('a');
-  a.download = 'live-data.json';
+  a.download = name;
   a.href = URL.createObjectURL(blob);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
 }
 $('btn-export-live').addEventListener('click', function(){
   exportLiveData();
-  toast('已导出 live-data.json，请上传到 GitHub 仓库根目录');
+  toast('已导出 ' + liveFileFor(currentLiveCust()) + '，请上传到 GitHub 仓库根目录');
 });
 $('btn-copy-live').addEventListener('click', function(){
-  var text = liveDataJSON();
+  var cust = currentLiveCust();
+  var text = liveDataJSON(cust);
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(function(){ toast('活码数据已复制'); }, function(){ fallbackCopy(text); });
   } else fallbackCopy(text);
 });
 
-/* ===== 一键上传活码数据到 GitHub ===== */
+/* ===== 一键上传活码数据到 GitHub（支持客户分组） ===== */
 var GH_REPO = 'CXK123-art/order-qr-site';
-var GH_PATH = 'live-data.json';
 var savedToken = null;
 try{ savedToken = localStorage.getItem('oqr_gh_token') || ''; }catch(e){}
 if(savedToken && $('gh-token')) $('gh-token').value = savedToken;
@@ -3539,39 +3588,46 @@ $('btn-upload-live').addEventListener('click', function(){
     return;
   }
   try{ localStorage.setItem('oqr_gh_token', token); }catch(e){}
-  if(!state.orders.length){
-    toast('当前没有订单数据，无法上传');
+  var cust = currentLiveCust();
+  var orders = liveOrdersFor(cust);
+  if(!orders.length){
+    toast(cust ? ('客户「' + cust + '」还没有订单，无法上传') : '当前没有订单数据，无法上传');
     return;
   }
+  var filePath = liveFileFor(cust);
   var btn = $('btn-upload-live'), oldText = btn.textContent;
   btn.disabled = true; btn.textContent = '上传中…';
-  var content = liveDataJSON();
+  var content = liveDataJSON(cust);
   var b64 = b64utf8(content);
 
-  /* 先获取线上文件当前 sha，再覆盖更新 */
-  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+  /* 先获取线上文件当前 sha（文件不存在则新建） */
+  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
     headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
   })
-  .then(function(r){ if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限'); return r.json(); })
+  .then(function(r){
+    if(r.status === 404) return null; /* 文件不存在，创建 */
+    if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限');
+    return r.json();
+  })
   .then(function(meta){
-    var body = JSON.stringify({
-      message: '更新活码数据（一键上传）',
-      content: b64,
-      sha: meta.sha
-    });
-    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+    var body = {
+      message: '更新活码数据（一键上传）' + (cust ? ' · ' + cust : ''),
+      content: b64
+    };
+    if(meta && meta.sha) body.sha = meta.sha;
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
       method: 'PUT',
       headers: {
         'Authorization': 'Bearer ' + token,
         'Accept': 'application/vnd.github+json',
         'Content-Type': 'application/json'
       },
-      body: body
+      body: JSON.stringify(body)
     });
   })
   .then(function(r){ if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')'); return r.json(); })
   .then(function(){
-    toast('活码数据已上传成功，约 30 秒后扫码生效');
+    toast((cust ? ('客户「' + cust + '」') : '活码数据') + '已上传成功，约 30 秒后扫码生效');
   })
   .catch(function(err){
     toast('上传失败：' + err.message);
@@ -3580,8 +3636,15 @@ $('btn-upload-live').addEventListener('click', function(){
 });
 
 $('btn-download').addEventListener('click', function(){
+  var d = new Date();
+  var pad = function(n){ return ('0'+n).slice(-2); };
+  var stamp = '' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  var cust = currentLiveCust();
+  var name = cust
+    ? ('活码_' + safeFileName(cust) + '_' + stamp + '.png')
+    : ('订单电话二维码_' + stamp + '.png');
   var a = document.createElement('a');
-  a.download = '订单电话二维码.png';
+  a.download = name;
   a.href = $('qr-canvas').toDataURL('image/png');
   document.body.appendChild(a); a.click(); a.remove();
   toast('已下载二维码图片');
@@ -3611,7 +3674,9 @@ $('btn-preview').addEventListener('click', function(){
 /* ===== 活码预览 / 清除 ===== */
 var livePreviewMode = false;
 function previewLiveViewer(){
-  if(!state.orders.length){ toast('请先添加订单'); return; }
+  var cust = currentLiveCust();
+  var orders = liveOrdersFor(cust);
+  if(!orders.length){ toast(cust ? ('客户「' + cust + '」还没有订单') : '请先添加订单'); return; }
   livePreviewMode = true;
   viewerData = null;
   $('view-editor').style.display = 'none';
@@ -3619,8 +3684,9 @@ function previewLiveViewer(){
   var bm = document.getElementById('btn-back-mgr');
   if(bm) bm.style.display = 'inline-block';
   if($('v-search')) $('v-search').value = '';
-  renderViewer({t: (state.title||'').trim() || '联系电话', o: state.orders});
-  toast('活码预览：与扫码打开的效果一致');
+  var title = cust ? (cust + ' - 联系电话') : ((state.title||'').trim() || '联系电话');
+  renderViewer({t: title, exp: Date.now() + 7*24*3600*1000, o: orders});
+  toast('活码预览' + (cust ? '（客户：' + cust + '）' : '') + '：与扫码打开的效果一致');
 }
 function backToManager(){
   livePreviewMode = false;
@@ -3875,25 +3941,27 @@ if(sm) sm.style.display = 'none';
 renderList();
 renderQRHistory();
 
-/* 清空线上活码数据（保留二维码文件，只清除数据） */
-function clearLiveData(){
+/* 清空线上活码数据（保留二维码文件，只清除数据；支持客户文件） */
+function clearLiveData(cust){
+  cust = cust || '';
+  var filePath = liveFileFor(cust);
   var savedTok = localStorage.getItem('oqr_gh_token') || '';
   if(!savedTok){ toast('未配置 GitHub Token，无法清除线上数据'); return; }
-  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
     headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
   })
   .then(function(r){ return r.ok ? r.json() : null; })
   .then(function(meta){
     if(!meta || !meta.sha) throw new Error('no meta');
-    var emptyData = JSON.stringify({t: '联系电话', exp: Date.now(), o: []});
-    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+    var emptyData = JSON.stringify({t: cust ? (cust + ' - 联系电话') : '联系电话', exp: Date.now(), o: []});
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: '删除历史二维码，同步清除线上数据', content: b64utf8(emptyData), sha: meta.sha })
     });
   })
   .then(function(r){
-    if(r && r.ok){ toast('线上数据已清除（手机号已删除）'); }
+    if(r && r.ok){ toast('线上数据已清除（手机号已删除）' + (cust ? ' · 客户：' + cust : '')); }
   })
   .catch(function(){ toast('清除线上数据失败，请检查 Token'); });
 }
@@ -3907,14 +3975,14 @@ try{
     .then(function(d){
       if(!d || !d.exp) return;
       if(Date.now() > Number(d.exp)){
-        fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+        fetch('https://api.github.com/repos/' + GH_REPO + '/contents/live-data.json', {
           headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
         })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(meta){
           if(!meta || !meta.sha) return;
           var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
-          return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+          return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/live-data.json', {
             method: 'PUT',
             headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
