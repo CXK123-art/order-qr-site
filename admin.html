@@ -3428,10 +3428,13 @@ function showHistoryQRModal(rec){
   modal.id = 'history-qr-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:100%;text-align:center">' +
-    '<h3 style="margin:0 0 10px;font-size:16px">'+rec.type+'</h3>' +
+    '<h3 style="margin:0 0 10px;font-size:16px">'+rec.type+(rec.customer ? '（'+esc(rec.customer)+'）' : '')+'</h3>' +
     '<div style="font-size:12px;color:#666;margin-bottom:16px">'+new Date(rec.time).toLocaleString()+' · '+rec.orderCount+' 个订单</div>' +
     '<div style="display:flex;justify-content:center;margin-bottom:16px"><canvas id="history-qr-canvas" width="240" height="240"></canvas></div>' +
-    '<button id="history-qr-close" class="btn" type="button" style="width:100%">关闭</button>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button id="history-qr-download" class="btn" type="button" style="flex:1">下载图片</button>' +
+      '<button id="history-qr-close" class="btn plain" type="button" style="flex:1">关闭</button>' +
+    '</div>' +
   '</div>';
   document.body.appendChild(modal);
   modal.querySelector('#history-qr-close').addEventListener('click', function(){ modal.remove(); });
@@ -3452,6 +3455,21 @@ function showHistoryQRModal(rec){
   }catch(e){
     modal.querySelector('#history-qr-canvas').parentElement.innerHTML = '<div style="color:#D93025;padding:20px">二维码生成失败</div>';
   }
+  /* 下载历史二维码（带日期命名 + 客户名） */
+  modal.querySelector('#history-qr-download').addEventListener('click', function(){
+    var canvas = modal.querySelector('#history-qr-canvas');
+    if(!canvas || !canvas.toDataURL) return;
+    var d = new Date();
+    var pad = function(n){ return ('0'+n).slice(-2); };
+    var stamp = '' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    var name = rec.customer
+      ? ('活码_' + safeFileName(rec.customer) + '_' + stamp + '.png')
+      : (rec.type === '活码' ? ('活码_' + stamp + '.png') : ('订单电话二维码_' + stamp + '.png'));
+    var a = document.createElement('a');
+    a.download = name;
+    a.href = canvas.toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+  });
 }
 
 /* ===== 二维码生成 ===== */
