@@ -2801,13 +2801,25 @@ function renderList(){
     html += '<div class="order-item">' +
       '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + cust + '</div>' +
       '<a class="phone" href="tel:' + esc(telHref(o.phone)) + '">' + esc(o.phone) + '</a>' +
-      '<div class="ops"><button class="btn danger sm" type="button" data-del="' + x.i + '">删除</button></div>' +
+      '<div class="ops"><button class="btn sm" type="button" data-setcust="' + x.i + '" title="设置客户名（用于客户分组活码）">客户</button>' +
+      '<button class="btn danger sm" type="button" data-del="' + x.i + '">删除</button></div>' +
     '</div>';
   });
   box.innerHTML = html;
   Array.prototype.forEach.call(box.querySelectorAll('[data-del]'), function(btn){
     btn.addEventListener('click', function(){
       state.orders.splice(+btn.getAttribute('data-del'),1); save(); renderList(); toast('已删除');
+    });
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('[data-setcust]'), function(btn){
+    btn.addEventListener('click', function(){
+      var idx = +btn.getAttribute('data-setcust');
+      var o = state.orders[idx];
+      var v = window.prompt('设置客户名（用于客户分组活码）：', o.customer || '');
+      if(v === null) return;
+      o.customer = v.trim();
+      save(); renderList();
+      toast(v.trim() ? ('客户已设为「' + v.trim() + '」') : '已清除客户名');
     });
   });
 }
