@@ -3361,7 +3361,10 @@ function renderQRHistory(){
         '<span style="font-weight:600;color:'+typeColor+'">'+rec.type+'</span>' + customer +
         '<div style="font-size:12px;color:#666;margin-top:2px">'+dateStr+' '+timeStr+' · '+rec.orderCount+' 个订单</div>' +
       '</div>' +
-      '<button class="btn plain sm" type="button" data-del-history="'+i+'" style="padding:4px 10px;font-size:12px">删除</button>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button class="btn plain sm" type="button" data-view-history="'+i+'" style="padding:4px 10px;font-size:12px">查看二维码</button>' +
+        '<button class="btn plain sm" type="button" data-del-history="'+i+'" style="padding:4px 10px;font-size:12px">删除</button>' +
+      '</div>' +
     '</div>';
   });
   box.innerHTML = html;
@@ -3378,6 +3381,50 @@ function renderQRHistory(){
       toast('已删除记录');
     });
   });
+  /* 查看历史二维码 */
+  Array.prototype.forEach.call(box.querySelectorAll('[data-view-history]'), function(btn){
+    btn.addEventListener('click', function(){
+      var idx = +btn.getAttribute('data-view-history');
+      var history = getQRHistory();
+      var rec = history[idx];
+      if(!rec || !rec.url) return;
+      /* 弹窗显示二维码 */
+      showHistoryQRModal(rec);
+    });
+  });
+}
+/* 历史二维码弹窗 */
+function showHistoryQRModal(rec){
+  var old = document.getElementById('history-qr-modal');
+  if(old) old.remove();
+  var modal = document.createElement('div');
+  modal.id = 'history-qr-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:100%;text-align:center">' +
+    '<h3 style="margin:0 0 10px;font-size:16px">'+rec.type+'</h3>' +
+    '<div style="font-size:12px;color:#666;margin-bottom:16px">'+new Date(rec.time).toLocaleString()+' · '+rec.orderCount+' 个订单</div>' +
+    '<div style="display:flex;justify-content:center;margin-bottom:16px"><canvas id="history-qr-canvas" width="240" height="240"></canvas></div>' +
+    '<button id="history-qr-close" class="btn" type="button" style="width:100%">关闭</button>' +
+  '</div>';
+  document.body.appendChild(modal);
+  modal.querySelector('#history-qr-close').addEventListener('click', function(){ modal.remove(); });
+  modal.addEventListener('click', function(e){ if(e.target === modal) modal.remove(); });
+  /* 生成二维码 */
+  try{
+    var qr = qrcode(0, rec.type === '活码' ? 'M' : 'L');
+    qr.addData(rec.url);
+    qr.make();
+    var canvas = modal.querySelector('#history-qr-canvas');
+    var ctx = canvas.getContext('2d');
+    var modules = qr.getModuleCount(), quiet = 2;
+    var size = canvas.width, cell = size / (modules + quiet*2);
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#14202B';
+    for(var r=0;r<modules;r++) for(var c=0;c<modules;c++)
+      if(qr.isDark(r,c)) ctx.fillRect(Math.round((c+quiet)*cell), Math.round((r+quiet)*cell), Math.ceil(cell)+1, Math.ceil(cell)+1);
+  }catch(e){
+    modal.querySelector('#history-qr-canvas').parentElement.innerHTML = '<div style="color:#D93025;padding:20px">二维码生成失败</div>';
+  }
 }
 
 /* ===== 二维码生成 ===== */
