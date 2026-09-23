@@ -160,6 +160,16 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 .td-phone a:hover{color:var(--brand)}
 .td-act{width:88px;white-space:nowrap}
 .td-duration{width:72px;font-size:13px;font-weight:600;color:#2E9E5A;line-height:1.4;white-space:nowrap}
+/* 搜索高亮匹配行 */
+#v-tbody tr.hit{background:#FFF7CC}
+#v-tbody tr.hit .td-order,#v-tbody tr.hit .td-phone{color:#92400E}
+/* 分页控件 */
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 10px;margin-top:12px;border:1px solid #E0E4E8;border-radius:12px;background:var(--card)}
+.pager-btn{padding:8px 16px;border:1px solid #D8DEE4;border-radius:8px;background:#fff;color:#1F6FEB;font-size:13px;font-weight:600;cursor:pointer;min-width:72px}
+.pager-btn:disabled{opacity:.35;cursor:not-allowed}
+.pager-btn:active{background:#EFF4FF}
+.pager-info{font-size:13px;font-weight:600;color:#333;text-align:center;line-height:1.5}
+.pager-info small{display:block;font-size:11px;color:#888;font-weight:400}
 .td-duration.empty{color:#B0B8C0;font-weight:400}
 .dial{
   display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;border:none;border-radius:6px;
@@ -3578,6 +3588,10 @@ window.addEventListener('unhandledrejection', function(e){
   console.error('未处理Promise:', e.reason);
 });
 
+/* ===== 拨打页分页状态 ===== */
+var CUR_PAGE = 1;
+var PAGE_SIZE = 50;
+
 function renderViewer(preloadedData){
   try{
     /* 活码模式：从 live-data.json 异步加载数据 */
@@ -3628,16 +3642,22 @@ function renderViewer(preloadedData){
   }
   var log = getDialLog();
   var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
-  /* 滚动定位模式：始终渲染全部订单，搜索时滚动到第一个匹配行 */
+  /* 分页模式：每页 PAGE_SIZE 条，搜索时自动跳到匹配行所在页 */
   var allList = data.o.map(function(item, i){ return {item: item, idx: i+1}; });
   if(!allList.length){
     $('v-list').innerHTML = '<div class="v-empty">暂无订单数据</div>';
     return;
   }
+  /* 计算总页数，修正当前页 */
+  var totalPages = Math.max(1, Math.ceil(allList.length / PAGE_SIZE));
+  if(CUR_PAGE > totalPages) CUR_PAGE = totalPages;
+  if(CUR_PAGE < 1) CUR_PAGE = 1;
+  var startIdx = (CUR_PAGE - 1) * PAGE_SIZE;
+  var pageList = allList.slice(startIdx, startIdx + PAGE_SIZE);
   var html = '<table class="v-table"><thead><tr>' +
     '<th>序号</th><th class="th-left">订单号</th><th class="th-left">电话号码</th><th>操作</th><th>通话时长</th>' +
     '</tr></thead><tbody id="v-tbody">';
-  allList.forEach(function(x){
+  pageList.forEach(function(x){
     var item = x.item, idx = x.idx;
     var phone = String(item.p||'').trim();
     var key = dialKey(item.n, phone);
@@ -3671,8 +3691,14 @@ function renderViewer(preloadedData){
       phoneDisplay = '<span style="color:#999">未填写</span>';
       dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">拨打</span>';
     }
+    /* 搜索匹配高亮（本页内） */
+    var isHit = false;
+    if(q){
+      var nL = String(item.n||'').toLowerCase(), pL = String(item.p||'').toLowerCase();
+      isHit = nL.indexOf(q)>=0 || pL.indexOf(q)>=0 || String(idx).indexOf(q)>=0;
+    }
     /* 给行加搜索用的数据属性 */
-    var rowAttr = 'data-n="' + esc(String(item.n||'')) + '" data-p="' + esc(String(item.p||'')) + '" data-idx="' + idx + '"';
+    var rowAttr = 'data-n="' + esc(String(item.n||'')) + '" data-p="' + esc(String(item.p||'')) + '" data-idx="' + idx + '"' + (isHit ? ' class="hit"' : '');
     html += '<tr ' + rowAttr + '>' +
       '<td class="td-idx">' + idx + '</td>' +
       '<td class="td-order">' + orderDisplay + '</td>' +
@@ -3682,8 +3708,23 @@ function renderViewer(preloadedData){
     '</tr>';
   });
   html += '</tbody></table>';
-  /* 分批渲染：大数据量时分批插入 DOM，避免一次性渲染卡死 */
+  /* 分页控件：上一页 / 页码 / 下一页 */
+  var pager = '<div class="pager">' +
+    '<button type="button" class="pager-btn" data-page="' + (CUR_PAGE-1) + '"' + (CUR_PAGE<=1 ? ' disabled' : '') + '>上一页</button>' +
+    '<span class="pager-info">第 ' + CUR_PAGE + ' / ' + totalPages + ' 页<br><small>共 ' + allList.length + ' 条</small></span>' +
+    '<button type="button" class="pager-btn" data-page="' + (CUR_PAGE+1) + '"' + (CUR_PAGE>=totalPages ? ' disabled' : '') + '>下一页</button>' +
+  '</div>';
+  html += pager;
   $('v-list').innerHTML = html;
+  /* 分页按钮事件委托 */
+  Array.prototype.forEach.call(document.querySelectorAll('#v-list .pager-btn:not([disabled])'), function(btn){
+    btn.addEventListener('click', function(){
+      var pg = +btn.getAttribute('data-page');
+      if(pg < 1 || pg > totalPages) return;
+      CUR_PAGE = pg;
+      renderViewer(viewerData || data);
+    });
+  });
   /* 事件绑定用事件委托，避免每行单独绑定 */
   Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
     a.addEventListener('click', function(){
@@ -3709,38 +3750,42 @@ function renderViewer(preloadedData){
 }
 if($('v-search')) $('v-search').addEventListener('input', function(){
   var q = this.value.trim().toLowerCase();
-  /* 滚动定位模式：不重建表格，直接查找第一个匹配行并滚动到它 */
-  var rows = document.querySelectorAll('#v-tbody tr');
-  var firstMatch = null;
-  rows.forEach(function(tr){
-    var n = (tr.getAttribute('data-n')||'').toLowerCase();
-    var p = (tr.getAttribute('data-p')||'').toLowerCase();
-    var idx = tr.getAttribute('data-idx')||'';
-    if(!q){
-      tr.style.background = '';
-      return;
+  /* 分页 + 搜索：找到第一个匹配行的全局序号，跳到对应页并滚动高亮 */
+  var data = viewerData;
+  var matchIdx = -1;
+  if(q && data && Array.isArray(data.o)){
+    for(var i=0;i<data.o.length;i++){
+      var n = String(data.o[i].n||'').toLowerCase();
+      var p = String(data.o[i].p||'').toLowerCase();
+      if(n.indexOf(q)>=0 || p.indexOf(q)>=0 || String(i+1).indexOf(q)>=0){ matchIdx = i; break; }
     }
-    var matched = n.indexOf(q)>=0 || p.indexOf(q)>=0 || idx.indexOf(q)>=0;
-    if(matched){
-      tr.style.background = '#fff3cd';
-      if(!firstMatch) firstMatch = tr;
-    } else {
-      tr.style.background = '';
-    }
-  });
-  if(firstMatch){
-    /* 手动计算滚动位置，兼容手机浏览器（scrollIntoView 在部分 WebView 不生效） */
-    var top = firstMatch.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 90;
-    var doScroll = function(){
-      try{
-        window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
-      }catch(e){
-        try{ window.scrollTo(0, Math.max(0, top)); }catch(e2){}
+  }
+  if(matchIdx >= 0){
+    CUR_PAGE = Math.floor(matchIdx / PAGE_SIZE) + 1;
+  } else {
+    CUR_PAGE = 1;
+  }
+  if(data && Array.isArray(data.o)){
+    renderViewer(data);
+  }
+  /* 渲染后：滚动到本页的匹配行并高亮 */
+  if(matchIdx >= 0){
+    var scrollTarget = function(){
+      var tr = document.querySelector('#v-tbody tr.hit');
+      if(!tr){
+        /* 匹配行可能不在本页（异常），按 data-idx 找 */
+        tr = document.querySelector('#v-tbody tr[data-idx="' + (matchIdx+1) + '"]');
+      }
+      if(tr){
+        try{
+          var top = tr.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 90;
+          window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+        }catch(e){ try{ window.scrollTo(0, Math.max(0, top)); }catch(e2){} }
       }
     };
-    doScroll();
+    scrollTarget();
     /* 手机键盘弹出会改变视口，延迟再滚一次确保到位 */
-    setTimeout(doScroll, 350);
+    setTimeout(scrollTarget, 350);
   }
   /* 注意：此处不能再 focus()，否则会把页面拉回搜索框顶部，抵消滚动 */
 });
