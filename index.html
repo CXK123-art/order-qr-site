@@ -3730,11 +3730,15 @@ if($('v-search')) $('v-search').addEventListener('input', function(){
 });
 
 /* ===== 初始化 ===== */
-/* 客户端：直接显示拨打页，不需要密码 */
+/* 客户端：直接显示拨打页，不需要密码，强制加载活码数据 */
 $('view-editor').style.display = 'none';
 $('view-viewer').style.display = 'block';
 var sm = document.getElementById('start-modal');
 if(sm) sm.style.display = 'none';
+/* 强制走活码模式：从 live-data.json 加载数据 */
+if(!location.hash || !/^#(d=|live)/.test(location.hash)){
+  location.hash = '#live';
+}
 renderViewer();
 </script>
 </body>
