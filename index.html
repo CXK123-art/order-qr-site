@@ -3686,7 +3686,7 @@ function renderViewer(preloadedData){
       }
     } else if(hasPhone){
       phoneDisplay = '<a href="tel:' + esc(telHref(phone)) + '">' + esc(phone) + '</a>';
-      dialDisplay = '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '">' + dialBtn + '</a>';
+      dialDisplay = '<a class="dial' + (called ? ' called' : '') + '" href="tel:' + esc(telHref(phone)) + '" data-key="' + esc(key) + '" data-order="' + esc(String(item.n||'')) + '" data-phone="' + esc(phone) + '" data-cust="' + esc(String(item.c||'')) + '">' + dialBtn + '</a>';
     } else {
       phoneDisplay = '<span style="color:#999">未填写</span>';
       dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">拨打</span>';
@@ -3738,6 +3738,8 @@ function renderViewer(preloadedData){
       try{ localStorage.setItem(DIAL_KEY, JSON.stringify(log2)); }catch(e){}
       a.classList.add('called');
       a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(now)) + '</span>';
+      /* 云端上报：拨打后自动把记录写入 dial-logs 仓库 */
+      uploadDialRecord(a.getAttribute('data-order')||'', a.getAttribute('data-phone')||'', a.getAttribute('data-cust')||'', now);
     });
   });
   }catch(err){
@@ -3747,6 +3749,47 @@ function renderViewer(preloadedData){
       listEl.innerHTML = '<div class="v-empty" style="padding:30px 20px;line-height:1.8">数据加载失败，请刷新页面重试。<br><br>如多次失败，请联系管理员。</div>';
     }
   }
+}
+/* ===== 云端拨打上报（写入 dial-logs 仓库） ===== */
+function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
+function uploadDialRecord(order, phone, cust, time){
+  var data = viewerData;
+  var up = data && data._up;
+  if(!up || !up.t || !up.r || !up.f){
+    /* 未配置云端上报：静默跳过 */
+    return;
+  }
+  var apiUrl = 'https://api.github.com/repos/' + up.r + '/contents/' + encodeURIComponent(up.f);
+  var record = {order: String(order||''), phone: String(phone||''), cust: String(cust||''), time: time};
+  /* 先读取当前文件（拿 sha + 已有记录），再追加写入 */
+  fetch(apiUrl, {headers: {'Authorization': 'Bearer ' + up.t, 'Accept': 'application/vnd.github+json'}})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(meta){
+      var logs = [];
+      if(meta && meta.content){
+        try{
+          var raw = decodeURIComponent(escape(atob(String(meta.content).replace(/\s/g,''))));
+          var parsed = JSON.parse(raw);
+          if(parsed && Array.isArray(parsed.logs)) logs = parsed.logs;
+        }catch(e){ logs = []; }
+      }
+      logs.push(record);
+      /* 防膨胀：最多保留 5000 条 */
+      if(logs.length > 5000) logs = logs.slice(-5000);
+      var putBody = {message: '拨打上报 ' + record.order, content: b64utf8(JSON.stringify({logs: logs}))};
+      if(meta && meta.sha) putBody.sha = meta.sha;
+      return fetch(apiUrl, {
+        method: 'PUT',
+        headers: {'Authorization': 'Bearer ' + up.t, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'},
+        body: JSON.stringify(putBody)
+      });
+    })
+    .then(function(r){
+      if(r && !r.ok) console.warn('拨打上报失败 HTTP ' + r.status);
+    })
+    .catch(function(e){
+      console.warn('拨打上报异常', e);
+    });
 }
 if($('v-search')) $('v-search').addEventListener('input', function(){
   var q = this.value.trim().toLowerCase();
