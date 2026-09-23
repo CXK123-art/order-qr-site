@@ -3863,7 +3863,8 @@ $('view-viewer').style.display = 'none';
 $('view-editor').style.display = 'block';
 var sm = document.getElementById('start-modal');
 if(sm) sm.style.display = 'none';
-/* 渲染二维码历史记录 */
+/* 渲染订单列表和历史记录 */
+renderList();
 renderQRHistory();
 
 /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
