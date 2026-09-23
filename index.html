@@ -3729,12 +3729,20 @@ if($('v-search')) $('v-search').addEventListener('input', function(){
     }
   });
   if(firstMatch){
-    try{ firstMatch.scrollIntoView({block:'center', behavior:'auto'}); }catch(e){}
+    /* 手动计算滚动位置，兼容手机浏览器（scrollIntoView 在部分 WebView 不生效） */
+    var top = firstMatch.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 90;
+    var doScroll = function(){
+      try{
+        window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+      }catch(e){
+        try{ window.scrollTo(0, Math.max(0, top)); }catch(e2){}
+      }
+    };
+    doScroll();
+    /* 手机键盘弹出会改变视口，延迟再滚一次确保到位 */
+    setTimeout(doScroll, 350);
   }
-  /* 保持搜索框焦点和内容不变 */
-  this.focus();
-  var pos = this.value.length;
-  try{ this.setSelectionRange(pos, pos); }catch(e){}
+  /* 注意：此处不能再 focus()，否则会把页面拉回搜索框顶部，抵消滚动 */
 });
 
 /* ===== 初始化 ===== */
