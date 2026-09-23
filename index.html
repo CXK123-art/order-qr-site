@@ -3592,14 +3592,22 @@ function renderViewer(preloadedData){
         return;
       }
       $('v-title').textContent = '加载中…';
+    /* 解析客户活码： #live-c=客户名 → live-客户名.json；#live → live-data.json */
+    var liveCust = null;
+    var m = location.hash.match(/^#live-c=(.+)$/);
+    var liveFile = 'live-data.json';
+    if(m){
+      try{ liveCust = decodeURIComponent(m[1]); }catch(e){ liveCust = m[1]; }
+      liveFile = 'live-' + String(liveCust).replace(/[\\/:*?"<>|\s]+/g,'').replace(/^\.+/,'') + '.json';
+    }
     /* 加时间戳防止浏览器/CDN缓存，确保手机和电脑看到最新数据 */
-    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
+    fetch(liveFile + '?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(function(d){ viewerData = d; renderViewer(d); })
       .catch(function(){
         /* 加载失败时只替换列表区域，保留搜索框和页面结构 */
         $('v-title').textContent = '数据加载失败';
-        $('v-list').innerHTML = '<div class="v-empty">活码数据文件（live-data.json）不存在或无法访问，请联系管理员上传。<br><br>可尝试下拉刷新页面。</div>';
+        $('v-list').innerHTML = '<div class="v-empty">活码数据文件（' + liveFile + '）不存在或无法访问，请联系管理员上传。<br><br>可尝试下拉刷新页面。</div>';
       });
     return;
   }
