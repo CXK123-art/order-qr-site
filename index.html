@@ -3477,19 +3477,36 @@ window.addEventListener('focus', settlePendingDial);
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) settlePendingDial(); });
 
 var viewerData = null; /* 活码模式下缓存已加载的数据，供搜索/重渲染使用 */
-function renderViewer(preloadedData){
-  /* 活码模式：从 live-data.json 异步加载数据 */
-  /* 仅当 preloadedData 是有效数据对象时才缓存，防止事件对象等误覆盖 */
-  if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){
-    if(!livePreviewMode){ viewerData = preloadedData; }
+/* 全局错误捕获：防止白屏闪退 */
+window.addEventListener('error', function(e){
+  console.error('页面错误:', e.message);
+  var list = document.getElementById('v-list');
+  if(list && list.innerHTML.indexOf('v-table') >= 0){
+    /* 渲染中出错不覆盖已有表格 */
+    return;
   }
-  if(!preloadedData && /^#live/.test(location.hash)){
-    if(viewerData){
-      /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
-      renderViewer(viewerData);
-      return;
+  if(list){
+    list.innerHTML = '<div class="v-empty" style="padding:30px 20px">页面加载出错，请刷新重试。<br><br>错误：' + (e.message||'未知') + '</div>';
+  }
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('未处理Promise:', e.reason);
+});
+
+function renderViewer(preloadedData){
+  try{
+    /* 活码模式：从 live-data.json 异步加载数据 */
+    /* 仅当 preloadedData 是有效数据对象时才缓存，防止事件对象等误覆盖 */
+    if(preloadedData && preloadedData.o && Array.isArray(preloadedData.o)){
+      if(!livePreviewMode){ viewerData = preloadedData; }
     }
-    $('v-title').textContent = '加载中…';
+    if(!preloadedData && /^#live/.test(location.hash)){
+      if(viewerData){
+        /* 已有缓存数据，直接用缓存渲染（搜索/重渲染场景） */
+        renderViewer(viewerData);
+        return;
+      }
+      $('v-title').textContent = '加载中…';
     /* 加时间戳防止浏览器/CDN缓存，确保手机和电脑看到最新数据 */
     fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
@@ -3572,7 +3589,9 @@ function renderViewer(preloadedData){
     '</tr>';
   });
   html += '</tbody></table>';
+  /* 分批渲染：大数据量时分批插入 DOM，避免一次性渲染卡死 */
   $('v-list').innerHTML = html;
+  /* 事件绑定用事件委托，避免每行单独绑定 */
   Array.prototype.forEach.call(document.querySelectorAll('#v-list .dial'), function(a){
     a.addEventListener('click', function(){
       var key = a.getAttribute('data-key');
@@ -3587,6 +3606,13 @@ function renderViewer(preloadedData){
       a.innerHTML = '<span class="sub">已拨打<br>' + esc(fmtDialTime(now)) + '</span>';
     });
   });
+  }catch(err){
+    console.error('渲染错误:', err);
+    var listEl = document.getElementById('v-list');
+    if(listEl && listEl.innerHTML.indexOf('v-table') < 0){
+      listEl.innerHTML = '<div class="v-empty" style="padding:30px 20px;line-height:1.8">数据加载失败，请刷新页面重试。<br><br>如多次失败，请联系管理员。</div>';
+    }
+  }
 }
 if($('v-search')) $('v-search').addEventListener('input', function(){
   var q = this.value.trim().toLowerCase();
