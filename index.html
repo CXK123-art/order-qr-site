@@ -243,6 +243,30 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
       </div>
     </header>
 
+    <!-- 数据统计面板 -->
+    <div class="stats-panel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#2563eb" id="stat-total">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">总订单</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#16a34a" id="stat-called">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">已拨打</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#f59e0b" id="stat-uncalled">0</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">未拨打</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:24px;font-weight:700;color:#7c3aed" id="stat-rate">0%</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">拨打完成率</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="btn-export-report" class="btn plain" type="button" style="flex:1;min-width:140px">导出拨打报表(Excel)</button>
+      <button id="btn-clear-dial-log" class="btn plain" type="button" style="flex:1;min-width:140px">清空拨打记录</button>
+    </div>
+
     <div class="grid">
       <!-- 左栏：录入与设置 -->
       <div>
@@ -251,12 +275,13 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
           <div class="row">
             <div class="grow"><input id="in-order" class="input" placeholder="订单号，如 DD20260911001"></div>
             <div class="grow"><input id="in-phone" class="input mono" placeholder="手机号/虚拟号，如 13800138000 或 400-123-4567" inputmode="tel"></div>
+            <div class="grow" style="max-width:140px"><input id="in-customer" class="input" placeholder="客户名（选填）"></div>
             <button id="btn-add" class="btn" type="button">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
               添加
             </button>
           </div>
-          <div class="hint">支持 <b>手机号、400/95 虚拟号、短号、分机号（用逗号或"转"分隔）、国际号</b>，生成拨号链接时自动转换为可拨打格式。</div>
+          <div class="hint">支持 <b>手机号、400/95 虚拟号、短号、分机号（用逗号或"转"分隔）、国际号</b>，生成拨号链接时自动转换为可拨打格式。客户名用于分组生成活码。</div>
         </div>
 
         <div class="card">
@@ -1412,7 +1437,6 @@ var qrcode = function() {
         }
 
       } else if (type < 41) {
-
         // 27 - 40
 
         switch(mode) {
@@ -2742,6 +2766,8 @@ function renderList(){
   var el = $('in-search');
   var q = (el ? el.value : '').trim();
   $('count').textContent = state.orders.length + (vis.length!==state.orders.length ? (' / 匹配 ' + vis.length) : '') + ' 条';
+  /* 更新统计面板 */
+  updateStats();
   if(!state.orders.length){
     box.innerHTML = '<div class="empty">还没有订单，先在左侧添加订单或批量导入。</div>';
     return;
@@ -2752,8 +2778,9 @@ function renderList(){
   }
   vis.forEach(function(x){
     var o = x.o;
+    var cust = o.customer ? '<span class="tag" style="background:#e0e7ff;color:#3730a3;margin-left:6px">'+esc(o.customer)+'</span>' : '';
     html += '<div class="order-item">' +
-      '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + '</div>' +
+      '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + cust + '</div>' +
       '<a class="phone" href="tel:' + esc(telHref(o.phone)) + '">' + esc(o.phone) + '</a>' +
       '<div class="ops"><button class="btn danger sm" type="button" data-del="' + x.i + '">删除</button></div>' +
     '</div>';
@@ -2766,6 +2793,57 @@ function renderList(){
   });
 }
 if($('in-search')) $('in-search').addEventListener('input', renderList);
+
+/* ===== 数据统计面板 ===== */
+function updateStats(){
+  var total = state.orders.length;
+  var log = {};
+  try{ log = JSON.parse(localStorage.getItem('oqr_dial_log_v1')||'{}'); }catch(e){}
+  var called = 0;
+  state.orders.forEach(function(o){
+    var key = (o.order||'') + '|' + (o.phone||'');
+    if(log[key]) called++;
+  });
+  var uncalled = total - called;
+  var rate = total ? Math.round(called/total*100) : 0;
+  var el;
+  if(el = document.getElementById('stat-total')) el.textContent = total;
+  if(el = document.getElementById('stat-called')) el.textContent = called;
+  if(el = document.getElementById('stat-uncalled')) el.textContent = uncalled;
+  if(el = document.getElementById('stat-rate')) el.textContent = rate + '%';
+}
+
+/* 导出拨打报表 CSV */
+$('btn-export-report').addEventListener('click', function(){
+  if(!state.orders.length){ toast('没有订单数据'); return; }
+  var log = {};
+  try{ log = JSON.parse(localStorage.getItem('oqr_dial_log_v1')||'{}'); }catch(e){}
+  var rows = [['序号','订单号','手机号','拨打状态','拨打时间','通话时长']];
+  state.orders.forEach(function(o, i){
+    var key = (o.order||'') + '|' + (o.phone||'');
+    var rec = log[key];
+    var status = rec ? '已拨打' : '未拨打';
+    var time = rec ? new Date((typeof rec==='number'?rec:rec.time)).toLocaleString() : '';
+    var dur = (rec && rec.duration) ? Math.round(rec.duration/1000)+'秒' : '';
+    rows.push([i+1, o.order||'', o.phone||'', status, time, dur]);
+  });
+  var csv = rows.map(function(r){ return r.join(','); }).join('\n');
+  var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '拨打报表_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('报表已导出');
+});
+
+/* 清空拨打记录 */
+$('btn-clear-dial-log').addEventListener('click', function(){
+  if(!confirm('确定清空全部拨打记录？订单数据不会删除。')) return;
+  localStorage.removeItem('oqr_dial_log_v1');
+  toast('拨打记录已清空');
+  renderList();
+});
+
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 /* 号码合法性：允许数字、空格、-、逗号、空串；含汉字/字母则不可录入 */
 function isPhoneAllowInput(phoneStr){
@@ -2809,19 +2887,19 @@ function formatPhoneDisplay(phone){
 }
 
 /* ===== 编辑器：添加与导入 ===== */
-function addOrder(order, phone){
-  order = (order||'').trim(); phone = (phone||'').trim();
+function addOrder(order, phone, customer){
+  order = (order||'').trim(); phone = (phone||'').trim(); customer = (customer||'').trim();
   /* 订单号带汉字/字母禁止录入 */
   if(order && !isOrderAllowInput(order)){ alert('订单号不能包含汉字、英文字母，请检查！'); return false; }
   if(!phone){ toast('请填写号码'); return false; }
   /* 带汉字/字母的号码禁止录入 */
   if(!isPhoneAllowInput(phone)){ alert('电话号码不能包含汉字、英文字母，请检查号码！'); return false; }
-  state.orders.push({order:order||('订单 '+(state.orders.length+1)), phone:phone});
+  state.orders.push({order:order||('订单 '+(state.orders.length+1)), phone:phone, customer:customer||''});
   save(); renderList(); return true;
 }
 $('btn-add').addEventListener('click', function(){
-  var o = $('in-order'), p = $('in-phone');
-  if(addOrder(o.value, p.value)){ o.value=''; p.value=''; toast('已添加'); }
+  var o = $('in-order'), p = $('in-phone'), c = $('in-customer');
+  if(addOrder(o.value, p.value, c.value)){ o.value=''; p.value=''; c.value=''; toast('已添加'); }
 });
 $('in-phone').addEventListener('keydown', function(e){ if(e.key==='Enter') $('btn-add').click(); });
 $('in-order').addEventListener('keydown', function(e){ if(e.key==='Enter') $('btn-add').click(); });
@@ -3172,10 +3250,16 @@ $('btn-clear').addEventListener('click', function(){
 });
 
 /* ===== 数据编解码（存入网址 # 片段） ===== */
-function buildPayload(){
+function buildPayload(customerName){
   /* 活码数据自动过期：生成时间 + 7 天 */
   var expireAt = Date.now() + 7*24*3600*1000;
-  return { t: (state.title||'').trim() || '联系电话', exp: expireAt, o: state.orders.map(function(x){ return {n:x.order, p:x.phone}; }) };
+  var orders = state.orders;
+  /* 按客户过滤：如果指定了客户名，只返回该客户的订单 */
+  if(customerName){
+    orders = orders.filter(function(x){ return (x.customer||'') === customerName; });
+  }
+  var title = customerName ? (customerName + ' - 联系电话') : ((state.title||'').trim() || '联系电话');
+  return { t: title, exp: expireAt, o: orders.map(function(x){ return {n:x.order, p:x.phone}; }) };
 }
 function encodeData(obj){
   var json = JSON.stringify(obj);
@@ -3660,6 +3744,19 @@ var btnAgree = document.getElementById('btn-agree');
 if(btnAgree) btnAgree.addEventListener('click', function(){
   var m = document.getElementById('start-modal');
   if(m) m.style.display = 'none';
+  /* 管理员密码验证：默认密码 admin123，可在设置里修改 */
+  var savedPwd = localStorage.getItem('oqr_admin_pwd') || 'admin123';
+  var inputPwd = prompt('请输入管理员密码（默认：admin123）：');
+  if(inputPwd === null){
+    /* 取消则回到确认弹窗 */
+    if(m) m.style.display = 'flex';
+    return;
+  }
+  if(inputPwd !== savedPwd){
+    alert('密码错误！');
+    if(m) m.style.display = 'flex';
+    return;
+  }
   $('view-editor').style.display = 'block';
   /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
   try{
