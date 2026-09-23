@@ -3683,6 +3683,43 @@ if(savedToken && $('gh-token')) $('gh-token').value = savedToken;
 
 function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
 
+/* 一键上传（带 409 冲突自动重试：重新获取 sha 再传，最多重试 3 次） */
+function uploadLiveFile(token, filePath, b64, cust, attempts){
+  attempts = attempts || 0;
+  return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
+    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r){
+    if(r.status === 404) return null;
+    if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限');
+    return r.json();
+  })
+  .then(function(meta){
+    var body = {
+      message: '更新活码数据（一键上传）' + (cust ? ' · ' + cust : ''),
+      content: b64
+    };
+    if(meta && meta.sha) body.sha = meta.sha;
+    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  })
+  .then(function(r){
+    if(r.status === 409 && attempts < 3){
+      /* 文件被并发修改导致 sha 过期，重新获取后再试 */
+      return uploadLiveFile(token, filePath, b64, cust, attempts + 1);
+    }
+    if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')');
+    return r.json();
+  });
+}
+
 $('btn-upload-live').addEventListener('click', function(){
   var token = ($('gh-token') ? $('gh-token').value : '').trim();
   if(!token){
@@ -3703,32 +3740,7 @@ $('btn-upload-live').addEventListener('click', function(){
   var content = liveDataJSON(cust);
   var b64 = b64utf8(content);
 
-  /* 先获取线上文件当前 sha（文件不存在则新建） */
-  fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
-    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
-  })
-  .then(function(r){
-    if(r.status === 404) return null; /* 文件不存在，创建 */
-    if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限');
-    return r.json();
-  })
-  .then(function(meta){
-    var body = {
-      message: '更新活码数据（一键上传）' + (cust ? ' · ' + cust : ''),
-      content: b64
-    };
-    if(meta && meta.sha) body.sha = meta.sha;
-    return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-  })
-  .then(function(r){ if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')'); return r.json(); })
+  uploadLiveFile(token, filePath, b64, cust, 0)
   .then(function(){
     toast((cust ? ('客户「' + cust + '」') : '活码数据') + '已上传成功，约 30 秒后扫码生效');
   })
