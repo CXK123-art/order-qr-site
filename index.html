@@ -3518,23 +3518,16 @@ function renderViewer(preloadedData){
   }
   var log = getDialLog();
   var q = ($('v-search') ? $('v-search').value : '').trim().toLowerCase();
-  /* 保留原始序号，搜索时序号不变 */
-  var list = data.o.map(function(item, i){ return {item: item, idx: i+1}; })
-    .filter(function(x){
-      if(!q) return true;
-      var item = x.item;
-      return String(x.idx).indexOf(q)>=0 ||
-             ((item.n||'').toLowerCase().indexOf(q)>=0) ||
-             ((String(item.p||'').toLowerCase().indexOf(q)>=0));
-    });
-  if(!list.length){
-    $('v-list').innerHTML = '<div class="v-empty">没有匹配「' + esc(q) + '」的序号、订单号或手机号</div>';
+  /* 滚动定位模式：始终渲染全部订单，搜索时滚动到第一个匹配行 */
+  var allList = data.o.map(function(item, i){ return {item: item, idx: i+1}; });
+  if(!allList.length){
+    $('v-list').innerHTML = '<div class="v-empty">暂无订单数据</div>';
     return;
   }
   var html = '<table class="v-table"><thead><tr>' +
     '<th>序号</th><th class="th-left">订单号</th><th class="th-left">电话号码</th><th>操作</th><th>通话时长</th>' +
-    '</tr></thead><tbody>';
-  list.forEach(function(x){
+    '</tr></thead><tbody id="v-tbody">';
+  allList.forEach(function(x){
     var item = x.item, idx = x.idx;
     var phone = String(item.p||'').trim();
     var key = dialKey(item.n, phone);
@@ -3568,7 +3561,9 @@ function renderViewer(preloadedData){
       phoneDisplay = '<span style="color:#999">未填写</span>';
       dialDisplay = '<span class="dial disabled" style="opacity:.4;cursor:not-allowed;pointer-events:none">拨打</span>';
     }
-    html += '<tr>' +
+    /* 给行加搜索用的数据属性 */
+    var rowAttr = 'data-n="' + esc(String(item.n||'')) + '" data-p="' + esc(String(item.p||'')) + '" data-idx="' + idx + '"';
+    html += '<tr ' + rowAttr + '>' +
       '<td class="td-idx">' + idx + '</td>' +
       '<td class="td-order">' + orderDisplay + '</td>' +
       '<td class="td-phone">' + phoneDisplay + '</td>' +
@@ -3594,11 +3589,28 @@ function renderViewer(preloadedData){
   });
 }
 if($('v-search')) $('v-search').addEventListener('input', function(){
-  renderViewer();
-  /* 搜索后自动滚动到结果列表顶部，搜索词保持不清空 */
-  var listEl = $('v-list');
-  if(listEl){
-    try{ listEl.scrollIntoView({block:'start', behavior:'auto'}); }catch(e){}
+  var q = this.value.trim().toLowerCase();
+  /* 滚动定位模式：不重建表格，直接查找第一个匹配行并滚动到它 */
+  var rows = document.querySelectorAll('#v-tbody tr');
+  var firstMatch = null;
+  rows.forEach(function(tr){
+    var n = (tr.getAttribute('data-n')||'').toLowerCase();
+    var p = (tr.getAttribute('data-p')||'').toLowerCase();
+    var idx = tr.getAttribute('data-idx')||'';
+    if(!q){
+      tr.style.background = '';
+      return;
+    }
+    var matched = n.indexOf(q)>=0 || p.indexOf(q)>=0 || idx.indexOf(q)>=0;
+    if(matched){
+      tr.style.background = '#fff3cd';
+      if(!firstMatch) firstMatch = tr;
+    } else {
+      tr.style.background = '';
+    }
+  });
+  if(firstMatch){
+    try{ firstMatch.scrollIntoView({block:'center', behavior:'auto'}); }catch(e){}
   }
   /* 保持搜索框焦点和内容不变 */
   this.focus();
