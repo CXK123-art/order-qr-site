@@ -82,6 +82,13 @@ body{
 .order-item .phone{font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:15px;font-weight:600;color:var(--brand);text-decoration:none;padding:4px 10px;border-radius:8px;background:var(--brand-soft);min-height:32px;display:inline-flex;align-items:center}
 .order-item .phone:hover{background:#D8ECE9}
 .order-item .ops{display:flex;gap:6px}
+/* 搜索滚动定位：匹配行高亮 */
+.order-item.hit{
+  background:#FFF7CC;
+  box-shadow:inset 3px 0 0 #F59E0B, 0 1px 4px rgba(245,158,11,.25);
+  border-color:#FCD34D;
+}
+.order-item.hit .order-no{color:#92400E}
 .search-box{position:relative;margin-bottom:12px}
 .search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9AA8B5;pointer-events:none}
 .search-box .input{padding-left:38px}
@@ -2774,37 +2781,41 @@ try{ var saved = JSON.parse(localStorage.getItem(LS_KEY)); if(saved && Array.isA
 
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
 
-/* ===== 编辑器：列表渲染（支持搜索） ===== */
-function visibleOrders(){
-  var el = $('in-search');
-  var q = (el ? el.value : '').trim().toLowerCase();
-  var arr = state.orders.map(function(o,i){ return {o:o, i:i}; });
-  if(!q) return arr;
-  return arr.filter(function(x){
-    return ((x.o.order||'').toLowerCase().indexOf(q)>=0) || ((x.o.phone||'').toLowerCase().indexOf(q)>=0);
-  });
-}
+/* ===== 编辑器：列表渲染（支持搜索滚动定位） ===== */
 function renderList(){
   /* 同步更新活码客户下拉选项 */
   updateLiveCustOptions();
-  var box = $('list'), html = '', vis = visibleOrders();
+  var box = $('list'), html = '';
   var el = $('in-search');
-  var q = (el ? el.value : '').trim();
-  $('count').textContent = state.orders.length + (vis.length!==state.orders.length ? (' / 匹配 ' + vis.length) : '') + ' 条';
+  var q = (el ? el.value : '').trim().toLowerCase();
+  var all = state.orders.map(function(o,i){ return {o:o, i:i}; });
+  /* 匹配计算（不过滤，全部渲染） */
+  var matched = [];
+  if(!q){
+    matched = all.slice();
+  } else {
+    all.forEach(function(x){
+      var hit = ((x.o.order||'').toLowerCase().indexOf(q)>=0) || ((x.o.phone||'').toLowerCase().indexOf(q)>=0);
+      if(hit) matched.push(x);
+    });
+  }
+  $('count').textContent = state.orders.length + (q ? (' / 匹配 ' + matched.length) : '') + ' 条';
   /* 更新统计面板 */
   updateStats();
   if(!state.orders.length){
     box.innerHTML = '<div class="empty">还没有订单，先在左侧添加订单或批量导入。</div>';
     return;
   }
-  if(!vis.length){
+  if(!matched.length){
     box.innerHTML = '<div class="empty">没有匹配「' + esc(q) + '」的订单号或手机号，换个关键词试试。</div>';
     return;
   }
-  vis.forEach(function(x){
+  /* 滚动定位模式：始终渲染全部订单，匹配行高亮 */
+  all.forEach(function(x){
     var o = x.o;
+    var isHit = q ? (matched.indexOf(x) >= 0) : false;
     var cust = o.customer ? '<span class="tag" style="background:#e0e7ff;color:#3730a3;margin-left:6px">'+esc(o.customer)+'</span>' : '';
-    html += '<div class="order-item">' +
+    html += '<div class="order-item' + (isHit ? ' hit' : '') + '">' +
       '<div class="order-no"><span class="tag">订单号</span>' + esc(o.order||'未填写') + cust + '</div>' +
       '<a class="phone" href="tel:' + esc(telHref(o.phone)) + '">' + esc(o.phone) + '</a>' +
       '<div class="ops"><button class="btn sm" type="button" data-setcust="' + x.i + '" title="设置客户名（用于客户分组活码）">客户</button>' +
@@ -2828,6 +2839,13 @@ function renderList(){
       toast(v.trim() ? ('客户已设为「' + v.trim() + '」') : '已清除客户名');
     });
   });
+  /* 搜索时滚动定位到第一个匹配行 */
+  if(q){
+    var firstHit = box.querySelector('.order-item.hit');
+    if(firstHit){
+      try{ firstHit.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){ firstHit.scrollIntoView(); }
+    }
+  }
 }
 if($('in-search')) $('in-search').addEventListener('input', renderList);
 
