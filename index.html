@@ -1437,6 +1437,7 @@ var qrcode = function() {
         }
 
       } else if (type < 41) {
+
         // 27 - 40
 
         switch(mode) {
@@ -3729,65 +3730,12 @@ if($('v-search')) $('v-search').addEventListener('input', function(){
 });
 
 /* ===== 初始化 ===== */
-if(isViewer()){
-  /* 拨打页（扫码打开）：直接显示，不弹确认窗 */
-  $('view-editor').style.display = 'none';
-  $('view-viewer').style.display = 'block';
-  var sm = document.getElementById('start-modal');
-  if(sm) sm.style.display = 'none';
-  renderViewer();
-} else {
-  /* 主网页：先隐藏，等待用户确认后显示 */
-  $('view-editor').style.display = 'none';
-}
-var btnAgree = document.getElementById('btn-agree');
-if(btnAgree) btnAgree.addEventListener('click', function(){
-  var m = document.getElementById('start-modal');
-  if(m) m.style.display = 'none';
-  /* 管理员密码验证：默认密码 admin123，可在设置里修改 */
-  var savedPwd = localStorage.getItem('oqr_admin_pwd') || 'admin123';
-  var inputPwd = prompt('请输入管理员密码（默认：admin123）：');
-  if(inputPwd === null){
-    /* 取消则回到确认弹窗 */
-    if(m) m.style.display = 'flex';
-    return;
-  }
-  if(inputPwd !== savedPwd){
-    alert('密码错误！');
-    if(m) m.style.display = 'flex';
-    return;
-  }
-  $('view-editor').style.display = 'block';
-  /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
-  try{
-    var savedTok = localStorage.getItem('oqr_gh_token') || '';
-    if(!savedTok) return;
-    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if(!d || !d.exp) return;
-        if(Date.now() > Number(d.exp)){
-          /* 数据已过期，自动清空线上数据（二维码保留，数据为空） */
-          fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
-            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
-          })
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(meta){
-            if(!meta || !meta.sha) return;
-            var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
-            return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
-              method: 'PUT',
-              headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
-            });
-          })
-          .then(function(){ toast('线上活码数据已过期，已自动清空'); })
-          .catch(function(){});
-        }
-      })
-      .catch(function(){});
-  }catch(e){}
-});
+/* 客户端：直接显示拨打页，不需要密码 */
+$('view-editor').style.display = 'none';
+$('view-viewer').style.display = 'block';
+var sm = document.getElementById('start-modal');
+if(sm) sm.style.display = 'none';
+renderViewer();
 </script>
 </body>
 </html>
