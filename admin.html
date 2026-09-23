@@ -233,18 +233,6 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
 </div>
 <div id="toast"></div>
 
-<!-- 激活码验证弹窗 -->
-<div id="act-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(12,20,28,0.94);z-index:99998;display:none;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#fff;width:100%;max-width:380px;padding:28px 24px;border-radius:14px;text-align:center;box-sizing:border-box;">
-    <div style="font-size:22px;font-weight:700;color:#14202B;">订单电话二维码生成器</div>
-    <div style="font-size:13px;color:#7a8a99;margin-top:6px;">请输入激活码进入管理后台</div>
-    <input id="act-code" type="text" inputmode="numeric" placeholder="请输入激活码" style="width:100%;padding:12px 14px;border:2px solid #d6dde5;border-radius:10px;font-size:18px;text-align:center;margin:18px 0 12px;box-sizing:border-box;outline:none;letter-spacing:4px;" onfocus="this.style.borderColor='#2b78e4'" onblur="this.style.borderColor='#d6dde5'">
-    <button id="btn-activate" type="button" style="width:100%;padding:13px;font-size:16px;font-weight:600;background:#2b78e4;color:#fff;border:none;border-radius:10px;cursor:pointer;">进入管理后台</button>
-    <div id="act-msg" style="font-size:13px;color:#D93025;margin-top:10px;min-height:18px"></div>
-    <div style="font-size:12px;color:#999;margin-top:8px">默认激活码：888888（可在设置中修改）</div>
-  </div>
-</div>
-
 <!-- ===== 视图：编辑器（管理订单） ===== -->
 <div id="view-editor">
   <div class="wrap">
@@ -355,13 +343,6 @@ textarea.input{resize:vertical;min-height:86px;line-height:1.7}
               <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px">网站部署地址（上线后的网址，二维码指向这里）</label>
               <input id="in-base" class="input mono" placeholder="https://你的网站地址/">
             </div>
-          </div>
-          <div class="row" style="margin-top:10px">
-            <div class="grow">
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px">管理后台激活码（默认 888888）</label>
-              <input id="in-act-code" class="input mono" placeholder="888888">
-            </div>
-            <button id="btn-save-act-code" class="btn plain" type="button" style="align-self:flex-end">保存</button>
           </div>
           <div class="hint">二维码内容 = 部署地址 + 订单数据。当前以 <b>本地文件</b> 打开时，生成的二维码仅用于本机测试；要让他人扫码可用，请先把本页部署到公网（如 GitHub Pages、Vercel），再填入部署地址重新生成。</div>
         </div>
@@ -3666,14 +3647,6 @@ $('in-title').value = state.title;
 $('in-base').value = state.baseUrl;
 $('in-title').addEventListener('input', function(){ state.title = this.value; save(); });
 $('in-base').addEventListener('input', function(){ state.baseUrl = this.value; save(); });
-/* 修改激活码 */
-$('in-act-code').value = getActCode();
-$('btn-save-act-code').addEventListener('click', function(){
-  var v = ($('in-act-code').value||'').trim();
-  if(!v){ toast('激活码不能为空'); return; }
-  localStorage.setItem(ACT_CODE_KEY, v);
-  toast('激活码已修改为：' + v);
-});
 
 /* ===== 查看器（扫码拨打页） ===== */
 function isViewer(){ return /^#d=/.test(location.hash) || /^#live/.test(location.hash); }
@@ -3893,49 +3866,14 @@ if($('v-search')) $('v-search').addEventListener('input', function(){
 });
 
 /* ===== 初始化 ===== */
-/* 管理端：需要激活码才能进入 */
+/* 管理端：直接显示管理页，不需要激活码 */
 $('view-viewer').style.display = 'none';
-$('view-editor').style.display = 'none';
+$('view-editor').style.display = 'block';
 var sm = document.getElementById('start-modal');
 if(sm) sm.style.display = 'none';
-
-/* 激活码验证 */
-var ACT_KEY = 'oqr_activated_v1';
-var ACT_CODE_KEY = 'oqr_act_code_v1';
-function getActCode(){ return localStorage.getItem(ACT_CODE_KEY) || '888888'; }
-function enterAdmin(){
-  $('view-editor').style.display = 'block';
-  renderList();
-  renderQRHistory();
-}
-/* 已激活则直接进入，否则显示激活码弹窗 */
-if(localStorage.getItem(ACT_KEY) === '1'){
-  enterAdmin();
-} else {
-  var am = document.getElementById('act-modal');
-  if(am) am.style.display = 'flex';
-  var actInput = document.getElementById('act-code');
-  if(actInput) actInput.focus();
-}
-var btnAct = document.getElementById('btn-activate');
-if(btnAct) btnAct.addEventListener('click', function(){
-  var input = document.getElementById('act-code');
-  var msg = document.getElementById('act-msg');
-  var val = (input ? input.value : '').trim();
-  if(val === getActCode()){
-    localStorage.setItem(ACT_KEY, '1');
-    var am2 = document.getElementById('act-modal');
-    if(am2) am2.style.display = 'none';
-    enterAdmin();
-    toast('激活成功');
-  } else {
-    if(msg) msg.textContent = '激活码错误，请重新输入';
-    if(input){ input.value = ''; input.focus(); }
-  }
-});
-document.getElementById('act-code').addEventListener('keydown', function(e){
-  if(e.key === 'Enter') btnAct.click();
-});
+/* 渲染订单列表和历史记录 */
+renderList();
+renderQRHistory();
 
 /* 清空线上活码数据（保留二维码文件，只清除数据） */
 function clearLiveData(){
