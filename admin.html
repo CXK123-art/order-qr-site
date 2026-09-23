@@ -3730,57 +3730,40 @@ if($('v-search')) $('v-search').addEventListener('input', function(){
 });
 
 /* ===== 初始化 ===== */
-/* 管理端：直接显示管理页，需要密码验证 */
+/* 管理端：直接显示管理页，不需要密码 */
 $('view-viewer').style.display = 'none';
-$('view-editor').style.display = 'none';
+$('view-editor').style.display = 'block';
 var sm = document.getElementById('start-modal');
 if(sm) sm.style.display = 'none';
 
-/* 直接弹出管理员密码验证 */
-(function(){
-  var savedPwd = localStorage.getItem('oqr_admin_pwd') || 'admin123';
-  var inputPwd = prompt('管理员登录\n\n请输入密码（默认：admin123）：');
-  if(inputPwd === null){
-    /* 取消则显示提示 */
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:16px;color:#666">需要管理员密码才能进入后台</div>';
-    return;
-  }
-  if(inputPwd !== savedPwd){
-    alert('密码错误！');
-    location.reload();
-    return;
-  }
-  $('view-editor').style.display = 'block';
-  /* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
-  try{
-    var savedTok = localStorage.getItem('oqr_gh_token') || '';
-    if(!savedTok) return;
-    fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if(!d || !d.exp) return;
-        if(Date.now() > Number(d.exp)){
-          /* 数据已过期，自动清空线上数据（二维码保留，数据为空） */
-          fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
-            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
-          })
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(meta){
-            if(!meta || !meta.sha) return;
-            var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
-            return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
-              method: 'PUT',
-              headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
-            });
-          })
-          .then(function(){ toast('线上活码数据已过期，已自动清空'); })
-          .catch(function(){});
-        }
-      })
-      .catch(function(){});
-  }catch(e){}
-})();
+/* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
+try{
+  var savedTok = localStorage.getItem('oqr_gh_token') || '';
+  if(!savedTok) throw new Error('no token');
+  fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.exp) return;
+      if(Date.now() > Number(d.exp)){
+        fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+          headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
+        })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(meta){
+          if(!meta || !meta.sha) return;
+          var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
+          return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_PATH, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
+          });
+        })
+        .then(function(){ toast('线上活码数据已过期，已自动清空'); })
+        .catch(function(){});
+      }
+    })
+    .catch(function(){});
+}catch(e){}
 </script>
 </body>
 </html>
