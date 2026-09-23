@@ -3323,6 +3323,13 @@ function saveQRHistory(history){
 }
 function addQRHistoryRecord(type, orderCount, customerName, url){
   var history = getQRHistory();
+  /* 去重：和上一条记录内容完全一样则不重复添加 */
+  if(history.length){
+    var last = history[0];
+    if(last.type === type && last.orderCount === orderCount && last.customer === (customerName||'')){
+      return; // 相同内容，不重复记录
+    }
+  }
   history.unshift({
     time: Date.now(),
     type: type, // '静态码' 或 '活码'
