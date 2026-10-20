@@ -3624,9 +3624,8 @@ function cloudCfg(){
 }
 function liveDataJSON(cust){
   var payload = buildPayload(cust || '');
-  /* 注入云端上报配置：扫码者拨打后自动上报到 dial-logs 仓库 */
-  var cfg = cloudCfg();
-  if(cfg.t) payload._up = cfg;
+  /* GitHub 密钥扫描禁止把 Token 提交进仓库（会被判 409 Secret detected），
+     因此提交到 live-data.json 时不再写入云端上报 Token */
   return JSON.stringify(payload, null, 2);
 }
 function genLiveQR(){
@@ -3686,12 +3685,15 @@ function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
 /* 一键上传（带 409 冲突自动重试：重新获取 sha 再传，最多重试 3 次） */
 function uploadLiveFile(token, filePath, b64, cust, attempts){
   attempts = attempts || 0;
+  function _wait(){ return new Promise(function(res){ setTimeout(res, attempts * 1500); }); }
   return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + encodeURIComponent(filePath), {
     headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
   })
   .then(function(r){
     if(r.status === 404) return null;
-    if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')，请检查 Token 权限');
+    if(r.status === 401) throw new Error('Token 无效/已过期/复制不完整(HTTP 401)，请重新生成并完整粘贴 Token');
+    if(r.status === 403) throw new Error('Token 权限不足(HTTP 403)：Contents 需设为 Read and write，并勾选本仓库');
+    if(!r.ok) throw new Error('获取文件信息失败(HTTP ' + r.status + ')');
     return r.json();
   })
   .then(function(meta){
@@ -3711,17 +3713,31 @@ function uploadLiveFile(token, filePath, b64, cust, attempts){
     });
   })
   .then(function(r){
-    if(r.status === 409 && attempts < 3){
-      /* 文件被并发修改导致 sha 过期，重新获取后再试 */
-      return uploadLiveFile(token, filePath, b64, cust, attempts + 1);
-    }
-    if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')');
-    return r.json();
+    return r.text().then(function(txt){
+      var data = null; try{ data = JSON.parse(txt); }catch(e){}
+      var msg = (data && data.message) ? data.message : '';
+      if(r.status === 409){
+        /* 密钥扫描/仓库规则拦截：不是版本冲突，重试无用，直接给出明确提示 */
+        if(/secret|rule violation|scan/i.test(msg) || /secret|Repository rule/i.test(txt)){
+          throw new Error('GitHub 密钥扫描拦截(HTTP 409)：文件内含 Token 被拒绝，提交前已自动去除，如仍出现请检查是否把 Token 写进了订单内容');
+        }
+        /* 真正的 sha 版本冲突：文件被并发修改，等待避让后重新取 sha 再试 */
+        if(attempts < 5){
+          return _wait().then(function(){ return uploadLiveFile(token, filePath, b64, cust, attempts + 1); });
+        }
+      }
+      if(r.status === 401) throw new Error('Token 无效/已过期/复制不完整(HTTP 401)，请重新生成并完整粘贴 Token');
+      if(r.status === 403) throw new Error('Token 权限不足(HTTP 403)：Contents 需设为 Read and write，并勾选本仓库');
+      if(!r.ok) throw new Error('上传失败(HTTP ' + r.status + ')' + (msg ? '：' + msg : ''));
+      return data;
+    });
   });
 }
 
 $('btn-upload-live').addEventListener('click', function(){
-  var token = ($('gh-token') ? $('gh-token').value : '').trim();
+  var token = (($('gh-token') ? $('gh-token').value : '').trim())
+    .replace(/[^\x20-\x7E]/g,'')   /* 去掉中文/emoji/换行等非ASCII，防止污染鉴权头 */
+    .replace(/\s+/g,'');           /* 去掉内部空格 */
   if(!token){
     toast('请先在下方填写 GitHub Token');
     $('gh-token').focus();
@@ -4199,34 +4215,6 @@ function clearLiveData(cust){
   .catch(function(){ toast('清除线上数据失败，请检查 Token'); });
 }
 
-/* 自动清理过期活码数据：检查线上 live-data.json，过期且有 token 则自动清空 */
-try{
-  var savedTok = localStorage.getItem('oqr_gh_token') || '';
-  if(!savedTok) throw new Error('no token');
-  fetch('live-data.json?t=' + Date.now(), {cache:'no-store'})
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(d){
-      if(!d || !d.exp) return;
-      if(Date.now() > Number(d.exp)){
-        fetch('https://api.github.com/repos/' + GH_REPO + '/contents/live-data.json', {
-          headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json' }
-        })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(meta){
-          if(!meta || !meta.sha) return;
-          var emptyData = JSON.stringify({t: (d.t||'联系电话'), exp: Date.now(), o: []});
-          return fetch('https://api.github.com/repos/' + GH_REPO + '/contents/live-data.json', {
-            method: 'PUT',
-            headers: { 'Authorization': 'Bearer ' + savedTok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: '活码数据已过期，自动清空', content: b64utf8(emptyData), sha: meta.sha })
-          });
-        })
-        .then(function(){ toast('线上活码数据已过期，已自动清空'); })
-        .catch(function(){});
-      }
-    })
-    .catch(function(){});
-}catch(e){}
 </script>
 </body>
 </html>
